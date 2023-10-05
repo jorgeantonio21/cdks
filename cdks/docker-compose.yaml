@@ -1,0 +1,12 @@
+version: '3'
+services:
+  neo4j:
+    image: neo4j:latest
+    ports:
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt
+    environment:
+      NEO4J_AUTH: neo4j/IlGOk+9SoTmmeQ==
+    volumes:
+      - ./neo4j/data:/data
+      - ./neo4j/logs:/logs
