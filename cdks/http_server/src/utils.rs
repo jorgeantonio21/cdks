@@ -1,4 +1,5 @@
 use serde_json::Value;
+use crate::graph::KnowledgeGraph;
 
 pub(crate) fn retrieve_prompt(chunk: &str) -> String {
     format!(
@@ -10,5 +11,7 @@ pub(crate) fn retrieve_prompt(chunk: &str) -> String {
 }
 
 pub(crate) fn kg_to_query_json(kg: &str) -> Value {
+    let relations: Vec<&str> = kg.split(',').collect();
+    let graph = relations.iter().map()
     todo!()
 }
