@@ -16,6 +16,7 @@ pub enum Error {
     InternalError,
     // -- Model errors.
     FailedToStoreIntent,
+    OpenAIError,
 }
 
 impl core::fmt::Display for Error {
@@ -53,6 +54,10 @@ impl Error {
             ),
             // -- Model
             Self::FailedToStoreIntent => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ClientError::SERVICE_ERROR,
+            ),
+            Self::OpenAIError => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 ClientError::SERVICE_ERROR,
             ),

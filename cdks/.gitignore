@@ -1,3 +1,4 @@
 ./target/
 ./neo4j/
 Cargo.lock
+.env

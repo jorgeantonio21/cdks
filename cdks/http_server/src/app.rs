@@ -1,19 +1,23 @@
 use std::sync::Arc;
 
 use axum::{extract::FromRef, routing::post, Router};
-use neo4j::neo4j_service::Neo4jService;
+use serde_json::Value;
+use tokio::sync::mpsc::Sender;
 
-use crate::handlers::process_chunk_handler;
+use crate::{client::OpenAiClient, handlers::process_chunk_handler};
 
 #[derive(Clone, FromRef)]
 pub struct AppState {
-    pub(crate) neo4j_service: Arc<Neo4jService>,
+    pub(crate) tx_neo4j: Sender<Value>,
+    pub(crate) client: Arc<OpenAiClient<'static>>,
 }
 
-pub fn routes(neo4j_service: Neo4jService) -> Router {
+pub fn routes(tx_neo4j: Sender<Value>, client: OpenAiClient<'static>) -> Router {
     let app_state = AppState {
-        neo4j_service: Arc::new(neo4j_service),
+        tx_neo4j,
+        client: Arc::new(client),
     };
+
     Router::new()
         .route("/", post(process_chunk_handler))
         .with_state(app_state)
