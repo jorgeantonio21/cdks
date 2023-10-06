@@ -1,5 +1,6 @@
+use crate::graph::{Entity, KnowledgeGraph, Relation};
+use anyhow::anyhow;
 use serde_json::Value;
-use crate::graph::KnowledgeGraph;
 
 pub(crate) fn retrieve_prompt(chunk: &str) -> String {
     format!(
@@ -10,8 +11,36 @@ pub(crate) fn retrieve_prompt(chunk: &str) -> String {
         Your answer: ", chunk)
 }
 
-pub(crate) fn kg_to_query_json(kg: &str) -> Value {
-    let relations: Vec<&str> = kg.split(',').collect();
-    let graph = relations.iter().map()
-    todo!()
+pub(crate) fn kg_to_query_json(kg: &str) -> anyhow::Result<Value> {
+    let triplets: Vec<&str> = kg.split(',').collect();
+    let relations = triplets
+        .iter()
+        .flat_map(|t| {
+            let triplet = t.split('|').collect::<Vec<_>>();
+            if triplet.len() != 3 {
+                return Err(anyhow!("Failed to produce well formed triplets"));
+            } else {
+                let head = triplet[0];
+                let relation = triplet[1];
+                let tail = triplet[2];
+                Ok(Relation::new(
+                    Entity::new(head),
+                    Entity::new(tail),
+                    relation,
+                ))
+            }
+        })
+        .collect::<Vec<Relation>>();
+    let graph = KnowledgeGraph::from_relations(relations);
+    let query_builder = graph.to_query_builder();
+    serde_json::to_value(&query_builder)
+        .map_err(|e| anyhow!("Failed to convert to query builder, with error: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_kg_to_query_json() {}
 }

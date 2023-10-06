@@ -1,12 +1,13 @@
-use std::marker::PhantomData;
+use std::{collections::HashSet, marker::PhantomData};
 
 use anyhow::{anyhow, Result};
+use neo4j::neo4j_builder::Neo4jQueryBuilder;
 use serde::{
     de::{MapAccess, Visitor},
     Deserialize, Deserializer, Serialize,
 };
 
-#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Entity<'a>(&'a str);
 
 impl<'a> Entity<'a> {
@@ -15,7 +16,7 @@ impl<'a> Entity<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Relation<'a, 'b: 'a> {
     head: Entity<'a>,
     tail: Entity<'a>,
@@ -58,6 +59,26 @@ impl<'a, 'b: 'a> KnowledgeGraph<'a, 'b> {
         }
 
         Ok(Self::new_unchecked(entities, relations))
+    }
+
+    pub fn from_relations(relations: Vec<Relation<'a, 'b>>) -> Self {
+        let mut entities = HashSet::with_capacity(2 * relations.len());
+        relations.iter().for_each(|r| {
+            entities.insert(r.head);
+        });
+        relations.iter().for_each(|r| {
+            entities.insert(r.tail);
+        });
+        Self {
+            entities: entities.into_iter().collect(),
+            relations,
+        }
+    }
+}
+
+impl<'a, 'b> KnowledgeGraph<'a, 'b> {
+    pub(crate) fn to_query_builder(self) -> Neo4jQueryBuilder {
+        todo!()
     }
 }
 
@@ -127,6 +148,29 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_from_relations() {
+        let relations = vec![
+            Relation::new(Entity("entity_1"), Entity("entity_2"), "relation_12"),
+            Relation::new(Entity("entity_3"), Entity("entity_4"), "relation_34"),
+            Relation::new(Entity("entity_5"), Entity("entity_6"), "relation_56"),
+            Relation::new(Entity("entity_7"), Entity("entity_8"), "relation_78"),
+            Relation::new(Entity("entity_3"), Entity("entity_5"), "relation_35"),
+        ];
+
+        let knowledge_graph = KnowledgeGraph::from_relations(relations.clone());
+        assert_eq!(knowledge_graph.relations, relations);
+
+        let mut entities = relations.iter().map(|r| r.head).collect::<HashSet<_>>();
+        entities.extend(relations.iter().map(|r| r.tail));
+
+        assert_eq!(knowledge_graph.entities.len(), entities.len());
+        
+        for entity in &entities {
+            assert!(knowledge_graph.entities.contains(entity));
+        }
+    }
 
     #[test]
     fn test_deserialize_knowledge_graph() {

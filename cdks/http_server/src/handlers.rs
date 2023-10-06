@@ -7,6 +7,7 @@ use crate::{
     types::{OpenAiRequest, ProcessChunkRequest, ProcessChunkResponse},
     utils::{kg_to_query_json, retrieve_prompt},
 };
+use log::{error, info};
 
 pub async fn process_chunk_handler(
     State(state): State<AppState>,
@@ -14,13 +15,19 @@ pub async fn process_chunk_handler(
 ) -> Json<Result<ProcessChunkResponse>> {
     let ProcessChunkRequest { chunk, params } = request;
     let prompt = retrieve_prompt(&chunk);
+
+    info!("Making OpenAI call with prompt: {prompt}");
+
     let openai_request = OpenAiRequest { prompt, params };
 
     match state.client.call(openai_request).await {
         Ok(response) => {
             let answer = match response.choices.get(0) {
                 Some(text) => &text.text,
-                None => return Json(Err(Error::OpenAIError)),
+                None => {
+                    error!("No choice for OpenAI response");
+                    return Json(Err(Error::OpenAIError));
+                }
             };
             let re = Regex::new(r"<kg>(.*?)</kg>").unwrap();
             let knowledge_graph = re
@@ -28,16 +35,29 @@ pub async fn process_chunk_handler(
                 .and_then(|cap| cap.get(1))
                 .map(|matched| matched.as_str().to_string());
 
+            info!("Obtained knowledge graph: {:?}", knowledge_graph);
+
             if let Some(kg) = knowledge_graph {
-                let query_builder_json = kg_to_query_json(&kg);
-                if let Err(e) = state.tx_neo4j.send(query_builder_json).await {
-                    return Json(Err(Error::InternalError));
-                };
-            } else {
-                return Json(Err(Error::InternalError));
-            };
+                match kg_to_query_json(&kg) {
+                    Ok(query) => {
+                        if let Err(e) = state.tx_neo4j.send(query).await {
+                            error!("Failed to send query to Neo4J service, with error: {e}");
+                            return Json(Err(Error::InternalError));
+                        };
+                    }
+                    Err(e) => {
+                        error!(
+                            "Failed to generate neo4j query from knowledge graph, with error: {e}"
+                        );
+                        return Json(Err(Error::InternalError));
+                    }
+                }
+            }
         }
-        Err(e) => return Json(Err(Error::InternalError)),
+        Err(e) => {
+            error!("Failed to get OpenAI response, with error {e}");
+            return Json(Err(Error::InternalError));
+        }
     }
 
     Json(Ok(ProcessChunkResponse {

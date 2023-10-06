@@ -18,4 +18,4 @@ tokio-stream = "0.1.14"
 
 [[bin]]
 name = 'neo4j_service'
-path = "../bin/main.rs"
+path = "../bin/neo4j_service.rs"
