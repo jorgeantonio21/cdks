@@ -33,8 +33,12 @@ impl Neo4jService {
         while let Some(query_value) = self.rx_query.recv().await {
             let query_builder = serde_json::from_value::<Neo4jQueryBuilder>(query_value)
                 .map_err(|e| anyhow!("Failed to deserialized received value, with error: {e}"))?;
-            let query = query_builder.build();
-            self.connection.write().await.execute(&query).await?;
+            let (query, params) = query_builder.build();
+            self.connection
+                .write()
+                .await
+                .execute(&query, &params)
+                .await?;
         }
         Ok(())
     }

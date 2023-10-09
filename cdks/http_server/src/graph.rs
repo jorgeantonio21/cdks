@@ -77,8 +77,22 @@ impl<'a, 'b: 'a> KnowledgeGraph<'a, 'b> {
 }
 
 impl<'a, 'b> KnowledgeGraph<'a, 'b> {
-    pub(crate) fn to_query_builder(self) -> Neo4jQueryBuilder {
-        todo!()
+    pub(crate) fn to_cypher_query_builder(self) -> Neo4jQueryBuilder {
+        let mut query_builder = Neo4jQueryBuilder::new();
+        for entity in &self.entities {
+            query_builder = query_builder.create_node(entity.0, &[]);
+        }
+        for relation in &self.relations {
+            query_builder = query_builder
+                .add_edge(
+                    &relation.head.0.to_string(),
+                    &relation.tail.0.to_string(),
+                    relation.relation,
+                )
+                .expect("Relations integrity have been verified already");
+        }
+
+        query_builder
     }
 }
 
@@ -166,7 +180,7 @@ mod tests {
         entities.extend(relations.iter().map(|r| r.tail));
 
         assert_eq!(knowledge_graph.entities.len(), entities.len());
-        
+
         for entity in &entities {
             assert!(knowledge_graph.entities.contains(entity));
         }

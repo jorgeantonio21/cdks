@@ -18,14 +18,14 @@ impl Neo4jConnection {
         })
     }
 
-    pub async fn execute(&self, q: &str) -> Result<(), anyhow::Error> {
+    pub async fn execute(&self, q: &str, params: &[(String, String)]) -> Result<(), anyhow::Error> {
         let tx = self.graph.start_txn().await.map_err(|e| {
             anyhow!(
                 "Failed to start a new transaction, with error: {}",
                 e.to_string()
             )
         })?;
-        tx.run(query(q))
+        tx.run_with_params(query(q))
             .await
             .map_err(|e| anyhow!("Failed to execute query {q}, with error: {e}"))?;
         tx.commit()

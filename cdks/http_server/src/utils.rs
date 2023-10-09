@@ -32,7 +32,7 @@ pub(crate) fn kg_to_query_json(kg: &str) -> anyhow::Result<Value> {
         })
         .collect::<Vec<Relation>>();
     let graph = KnowledgeGraph::from_relations(relations);
-    let query_builder = graph.to_query_builder();
+    let query_builder = graph.to_cypher_query_builder();
     serde_json::to_value(&query_builder)
         .map_err(|e| anyhow!("Failed to convert to query builder, with error: {e}"))
 }
@@ -42,5 +42,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_kg_to_query_json() {}
+    fn test_kg_to_query_json() {
+        todo!()
+    }
 }
