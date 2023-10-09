@@ -39,7 +39,6 @@ pub(crate) fn kg_to_query_json(kg: &str) -> anyhow::Result<Value> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn test_kg_to_query_json() {
