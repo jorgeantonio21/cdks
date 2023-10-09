@@ -17,6 +17,7 @@ regex = "1.9.6"
 tokio = "1.32.0"
 log = "0.4.20"
 anyhow = "1.0.75"
+env_logger = "0.10.0"
 
 [[bin]]
 name = "http_server"

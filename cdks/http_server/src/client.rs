@@ -3,13 +3,13 @@ use std::env;
 
 use crate::types::{OpenAiRequest, OpenAiResponse};
 
-pub struct OpenAiClient<'a> {
-    pub(crate) endpoint: &'a str,
+pub struct OpenAiClient {
+    pub(crate) endpoint: String,
     pub(crate) client: Client,
 }
 
-impl<'a> OpenAiClient<'a> {
-    pub fn new(endpoint: &'a str) -> Self {
+impl OpenAiClient {
+    pub fn new(endpoint: String) -> Self {
         Self {
             endpoint,
             client: Client::new(),
@@ -21,7 +21,7 @@ impl<'a> OpenAiClient<'a> {
         let openai_api_key = env::var("OPENAI_API_KEY").expect("Failed to retrieve OpenAI api key");
 
         self.client
-            .post(self.endpoint)
+            .post(&self.endpoint)
             .header("Authorization", format!("Bearer {}", openai_api_key))
             .header("Content-Type", "application/json")
             .json(&request)
