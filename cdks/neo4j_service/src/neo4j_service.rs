@@ -37,7 +37,7 @@ impl Neo4jService {
             self.connection
                 .write()
                 .await
-                .execute(&query, &params)
+                .execute(&query, params)
                 .await?;
         }
         Ok(())
