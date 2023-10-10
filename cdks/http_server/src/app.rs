@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use axum::{extract::FromRef, routing::post, Router};
+use log::info;
 use serde_json::Value;
 use tokio::sync::mpsc::Sender;
 
@@ -17,6 +18,8 @@ pub fn routes(tx_neo4j: Sender<Value>, client: OpenAiClient) -> Router {
         tx_neo4j,
         client: Arc::new(client),
     };
+
+    info!("Routing..");
 
     Router::new()
         .route("/", post(process_chunk_handler))

@@ -22,16 +22,13 @@ pub async fn process_chunk_handler(
 
     match state.client.call(openai_request).await {
         Ok(response) => {
-            let answer = match response.choices.get(0) {
-                Some(text) => &text.text,
-                None => {
-                    error!("No choice for OpenAI response");
-                    return Json(Err(Error::OpenAIError));
-                }
-            };
+            let answer = response["choices"][0]["message"]["content"].to_string();
+
+            info!("OpenAI answer is: {}", answer);
+
             let re = Regex::new(r"<kg>(.*?)</kg>").unwrap();
             let knowledge_graph = re
-                .captures(answer)
+                .captures(&answer)
                 .and_then(|cap| cap.get(1))
                 .map(|matched| matched.as_str().to_string());
 

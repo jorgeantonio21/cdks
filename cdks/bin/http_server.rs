@@ -1,5 +1,6 @@
 use std::{env, sync::Arc};
 
+use dotenv::dotenv;
 use http_server::{client::OpenAiClient, config::Config, service::run_service};
 use neo4j::{neo4j::Neo4jConnection, neo4j_service::Neo4jService, ConfigBuilder};
 use tokio::sync::RwLock;
@@ -7,6 +8,8 @@ use tokio::sync::RwLock;
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     env_logger::init();
+    dotenv().ok();
+
     let (tx_neo4j, rx_neo4j) = tokio::sync::mpsc::channel(100);
 
     let config = ConfigBuilder::new()

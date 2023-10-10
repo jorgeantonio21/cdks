@@ -1,5 +1,6 @@
 use crate::graph::{Entity, KnowledgeGraph, Relation};
 use anyhow::anyhow;
+use log::info;
 use serde_json::Value;
 
 pub(crate) fn retrieve_prompt(chunk: &str) -> String {
@@ -13,6 +14,9 @@ pub(crate) fn retrieve_prompt(chunk: &str) -> String {
 
 pub(crate) fn kg_to_query_json(kg: &str) -> anyhow::Result<Value> {
     let triplets: Vec<&str> = kg.split(',').collect();
+
+    info!("Retrieves triplets: {:?}", triplets);
+
     let relations = triplets
         .iter()
         .flat_map(|t| {
@@ -32,6 +36,9 @@ pub(crate) fn kg_to_query_json(kg: &str) -> anyhow::Result<Value> {
         })
         .collect::<Vec<Relation>>();
     let graph = KnowledgeGraph::from_relations(relations);
+
+    info!("Retrieved Knowledge Graph: {:?}", graph);
+
     let query_builder = graph.to_cypher_query_builder();
     serde_json::to_value(&query_builder)
         .map_err(|e| anyhow!("Failed to convert to query builder, with error: {e}"))
