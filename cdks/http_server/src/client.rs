@@ -3,7 +3,7 @@ use reqwest::Client;
 use serde_json::{json, Value};
 use std::env;
 
-use crate::types::{Choice, OpenAiRequest, OpenAiResponse};
+use crate::types::OpenAiRequest;
 
 pub struct OpenAiClient {
     pub(crate) endpoint: String,

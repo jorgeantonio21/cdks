@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use log::{error, info};
 use neo4rs::{query, Config, Graph};
 use std::sync::Arc;
 
@@ -24,14 +25,22 @@ impl Neo4jConnection {
         params: Vec<(String, String)>,
     ) -> Result<(), anyhow::Error> {
         let tx = self.graph.start_txn().await.map_err(|e| {
+            error!("Failed to start a new transaction, with error: {}", e);
             anyhow!(
                 "Failed to start a new transaction, with error: {}",
                 e.to_string()
             )
         })?;
-        tx.run(query(q).params(params))
-            .await
-            .map_err(|e| anyhow!("Failed to execute query {q}, with error: {e}"))?;
+
+        info!("Running query...");
+
+        tx.run(query(q).params(params)).await.map_err(|e| {
+            error!("Failed to execute query {q}, with error: {e}");
+            anyhow!("Failed to execute query {q}, with error: {e}")
+        })?;
+
+        info!("Commiting transaction...");
+
         tx.commit()
             .await
             .map_err(|e| anyhow!("Failed to commit transaction, with error: {e}"))

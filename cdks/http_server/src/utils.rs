@@ -1,47 +1,47 @@
-use crate::graph::{Entity, KnowledgeGraph, Relation};
+use crate::graph::KnowledgeGraph;
 use anyhow::anyhow;
-use log::info;
+use log::{error, info};
 use serde_json::Value;
 
 pub(crate) fn retrieve_prompt(chunk: &str) -> String {
-    format!(
-        "Text: {}\n
-        Task: Generate a knowledge graph from the above Text.\n
-        Your answer should consist of the knowledge graph, enclosed in <kg></kg> tags.\n
-        The generated knowledge graph by you, should contain entities and relations, in JSON format.\n
-        Your answer: ", chunk)
+    let mut prompt = format!("Text: {} \n", chunk);
+    prompt.push_str(r#"Task: Generate a knowledge graph from the above Text.\n
+    Your answer should consist of the knowledge graph, enclosed in <kg></kg> tags.\n
+    The generated knowledge graph by you, should contain entities and relations, in JSON format.\n
+    To guide in your answer generation, I provide an example of such a knowledge graph.
+    <kg>{{"entities":["entity_1","entity_2","entity_3"],"relations":[{{"head":"entity_1","tail":"entity_2","relation":"relation_12"}},{{"head":"entity_2","tail":"entity_3","relation":"relation_23"}}]}}</kg>\n
+    The entities and relations should always be generated in camel case. 
+    Your answer: "#);
+    prompt
 }
 
 pub(crate) fn kg_to_query_json(kg: &str) -> anyhow::Result<Value> {
-    let triplets: Vec<&str> = kg.split(',').collect();
-
-    info!("Retrieves triplets: {:?}", triplets);
-
-    let relations = triplets
-        .iter()
-        .flat_map(|t| {
-            let triplet = t.split('|').collect::<Vec<_>>();
-            if triplet.len() != 3 {
-                return Err(anyhow!("Failed to produce well formed triplets"));
-            } else {
-                let head = triplet[0];
-                let relation = triplet[1];
-                let tail = triplet[2];
-                Ok(Relation::new(
-                    Entity::new(head),
-                    Entity::new(tail),
-                    relation,
-                ))
-            }
-        })
-        .collect::<Vec<Relation>>();
-    let graph = KnowledgeGraph::from_relations(relations);
+    let kg_str = unescape_json(kg);
+    info!("KNOWLEDGE GRAPH: {}", kg);
+    let graph = serde_json::from_str::<KnowledgeGraph>(&kg_str).map_err(|e| {
+        error!(
+            "Failed to generate knowledge graph from OpenAI response, with error: {}",
+            e
+        );
+        anyhow!(
+            "Failed to generate knowledge graph from OpenAI response, with error: {}",
+            e
+        )
+    })?;
 
     info!("Retrieved Knowledge Graph: {:?}", graph);
 
     let query_builder = graph.to_cypher_query_builder();
     serde_json::to_value(&query_builder)
         .map_err(|e| anyhow!("Failed to convert to query builder, with error: {e}"))
+}
+
+fn unescape_json(s: &str) -> String {
+    s.replace("{{", "{")
+        .replace("}}", "}")
+        .replace(r#"\\\""#, r#"""#)
+        .replace(r#"\""#, r#"""#)
+        .replace(r#"\n"#, "")
 }
 
 #[cfg(test)]

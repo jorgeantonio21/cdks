@@ -13,7 +13,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let (tx_neo4j, rx_neo4j) = tokio::sync::mpsc::channel(100);
 
     let config = ConfigBuilder::new()
-        .uri("neo4j")
+        .uri("bolt://localhost:7687")
         .user("neo4j")
         .password("IlGOk+9SoTmmeQ==")
         .build()
@@ -25,6 +25,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let client = OpenAiClient::new(endpoint);
     let config = Config::default();
+
     run_service(tx_neo4j, client, config).await?;
 
     Ok(())

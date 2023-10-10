@@ -97,17 +97,47 @@ impl Neo4jQueryBuilder {
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
-            query.push_str(&format!(
-                "CREATE (n{}:{} {{ {} }})\n",
-                node_index, node.label, properties
-            ));
+            if properties.is_empty() {
+                query.push_str(&format!("CREATE (n{}:{})\n", node_index, node.label))
+            } else {
+                query.push_str(&format!(
+                    "CREATE (n{}:{} {{ {} }})\n",
+                    node_index, node.label, properties
+                ));
+            }
         }
 
-        for edge in &self.edges {
-            query.push_str(&format!(
-                "MATCH (a:{}), (b:{}) CREATE (a)-[:{}]->(b)\n",
-                edge.source, edge.target, edge.edge_relation
-            ));
+        if !self.edges.is_empty() {
+            let mut with_clause = "WITH ".to_string();
+            (0..self.nodes.len() - 1).for_each(|i| with_clause.push_str(&format!("n{}, ", i)));
+            with_clause.push_str(&format!("n{} ", self.nodes.len() - 1));
+            for (ind, edge) in self.edges.iter().enumerate() {
+                let source_index = self
+                    .nodes
+                    .iter()
+                    .enumerate()
+                    .find(|(_, x)| x.label == edge.source)
+                    .unwrap()
+                    .0;
+                let target_index = self
+                    .nodes
+                    .iter()
+                    .enumerate()
+                    .find(|(_, x)| x.label == edge.target)
+                    .unwrap()
+                    .0;
+                query.push_str(&with_clause);
+                query.push_str(&format!(
+                    "MATCH (n{}:{}), (n{}:{}) CREATE (n{})-[:{}]->(n{})\n",
+                    source_index,
+                    edge.source,
+                    target_index,
+                    edge.target,
+                    source_index,
+                    edge.edge_relation,
+                    target_index
+                ));
+            }
         }
 
         if !self.return_fields.is_empty() {
