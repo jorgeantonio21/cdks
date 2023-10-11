@@ -111,7 +111,7 @@ impl Neo4jQueryBuilder {
             let mut with_clause = "WITH ".to_string();
             (0..self.nodes.len() - 1).for_each(|i| with_clause.push_str(&format!("n{}, ", i)));
             with_clause.push_str(&format!("n{} ", self.nodes.len() - 1));
-            for (ind, edge) in self.edges.iter().enumerate() {
+            for edge in &self.edges {
                 let source_index = self
                     .nodes
                     .iter()
