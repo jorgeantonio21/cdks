@@ -42,9 +42,13 @@ In order to do so, please run
 
 `$ docker compose up`
 
-To start the http service, you need to run
+To start the http service, you need to change directory to `http_server/`
 
-`$ cd bin http_server & cargo run`
+`$ cd http_server/`
+
+and then execute 
+
+`$ cargo run`
 
 This will start the HTTP server, with default port `3000`. You can start making requests to the root, via Postman or you preferred tool. A basic 
 post request to the service, looks like:
