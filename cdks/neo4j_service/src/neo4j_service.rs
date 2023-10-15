@@ -8,7 +8,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::{neo4j::Neo4jConnection, neo4j_builder::Neo4jQueryBuilder};
+use crate::{neo4j::Neo4jConnection, neo4j_builder::Neo4jQuery};
 
 pub struct Neo4jService {
     rx_query: Receiver<Value>,
@@ -35,18 +35,33 @@ impl Neo4jService {
         while let Some(query_value) = self.rx_query.recv().await {
             info!("Received a new query: {query_value}");
 
-            let query_builder = serde_json::from_value::<Neo4jQueryBuilder>(query_value)
+            let query = serde_json::from_value::<Neo4jQuery>(query_value)
                 .map_err(|e| anyhow!("Failed to deserialized received value, with error: {e}"))?;
-            let (query, params) = query_builder.build();
 
-            info!("Executing query...");
+            match query {
+                Neo4jQuery::Builder(query_builder) => {
+                    let (query, params) = query_builder.build();
 
-            self.connection
-                .write()
-                .await
-                .execute(&query, params)
-                .await?;
+                    info!("Executing query...");
+
+                    self.connection
+                        .write()
+                        .await
+                        .execute(&query, params)
+                        .await?;
+                }
+                Neo4jQuery::Retrieve(node_ids) => {
+                    info!("Executing query...");
+
+                    self.connection
+                        .write()
+                        .await
+                        .retrieve_on_match(node_ids)
+                        .await?;
+                }
+            }
         }
+
         Ok(())
     }
 }

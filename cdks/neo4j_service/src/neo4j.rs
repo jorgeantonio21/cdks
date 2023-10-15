@@ -45,4 +45,38 @@ impl Neo4jConnection {
             .await
             .map_err(|e| anyhow!("Failed to commit transaction, with error: {e}"))
     }
+
+    pub async fn retrieve_on_match(&self, node_ids: Vec<usize>) -> Result<(), anyhow::Error> {
+        let cypher_query = format!(
+            "MATCH (n) WHERE ID(n) IN {:?} \
+                                MATCH (n) -[r] -> (m) \
+                                RETURN n, r, m",
+            node_ids
+        );
+
+        let tx = self.graph.start_txn().await.map_err(|e| {
+            error!("Failed to start a new transaction, with error: {}", e);
+            anyhow!(
+                "Failed to start a new transaction, with error: {}",
+                e.to_string()
+            )
+        })?;
+
+        info!("Running query...");
+
+        let mut stream = tx.execute(query(&cypher_query)).await.map_err(|e| {
+            error!("Failed to execute query {cypher_query}, with error: {e}");
+            anyhow!("Failed to execute query {cypher_query}, with error: {e}")
+        })?;
+
+        while let Some(token) = stream.next().await? {
+            info!("Received new token: {:?}", token);
+        }
+
+        info!("Commiting transaction...");
+
+        tx.commit()
+            .await
+            .map_err(|e| anyhow!("Failed to commit transaction, with error: {e}"))
+    }
 }

@@ -1,6 +1,14 @@
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
+pub type Labels = Vec<usize>;
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum Neo4jQuery {
+    Builder(Neo4jQueryBuilder),
+    Retrieve(Labels),
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Node {
     label: String,

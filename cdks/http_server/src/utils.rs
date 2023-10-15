@@ -1,6 +1,7 @@
 use crate::graph::KnowledgeGraph;
 use anyhow::anyhow;
 use log::{error, info};
+use neo4j::neo4j_builder::Neo4jQuery;
 use serde_json::Value;
 
 pub(crate) fn retrieve_prompt(chunk: &str) -> String {
@@ -10,7 +11,7 @@ pub(crate) fn retrieve_prompt(chunk: &str) -> String {
     The generated knowledge graph by you, should contain entities and relations, in JSON format.\n
     To guide in your answer generation, I provide an example of such a knowledge graph.
     <kg>{{"entities":["entity_1","entity_2","entity_3"],"relations":[{{"head":"entity_1","tail":"entity_2","relation":"relation_12"}},{{"head":"entity_2","tail":"entity_3","relation":"relation_23"}}]}}</kg>\n
-    The entities and relations should always be generated in camel case. 
+    The entities and relations should always be generated in camel case, and they should always start with a letter (not a number or other special characters).
     Your answer: "#);
     prompt
 }
@@ -32,7 +33,7 @@ pub(crate) fn kg_to_query_json(kg: &str) -> anyhow::Result<Value> {
     info!("Retrieved Knowledge Graph: {:?}", graph);
 
     let query_builder = graph.to_cypher_query_builder();
-    serde_json::to_value(&query_builder)
+    serde_json::to_value(&Neo4jQuery::Builder(query_builder))
         .map_err(|e| anyhow!("Failed to convert to query builder, with error: {e}"))
 }
 

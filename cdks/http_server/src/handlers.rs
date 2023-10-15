@@ -1,4 +1,5 @@
 use axum::{extract::State, Json};
+use neo4j::neo4j_builder::Neo4jQuery;
 use regex::Regex;
 
 use crate::{
@@ -70,5 +71,18 @@ pub async fn retrieve_knowledge(
     State(state): State<AppState>,
     Json(request): Json<RetrieveKnowledgeRequest>,
 ) -> Result<Json<RetrieveKnowledgeResponse>> {
+    let RetrieveKnowledgeRequest {
+        node_indices,
+        params: _params,
+    } = request;
+    let query = serde_json::to_value(&Neo4jQuery::Retrieve(node_indices)).map_err(|e| {
+        error!("Failed to build JSON from node indices, with error: {e}");
+        Error::InternalError
+    })?;
+    state.tx_neo4j.send(query).await.map_err(|e| {
+        error!("Failed to build JSON from node indices, with error: {e}");
+        Error::InternalError
+    })?;
+
     Ok(Json(RetrieveKnowledgeResponse { is_success: true }))
 }
