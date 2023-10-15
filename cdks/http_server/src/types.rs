@@ -14,6 +14,18 @@ pub struct ProcessChunkResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RetrieveKnowledgeRequest {
+    pub(crate) node_indices: Vec<usize>,
+    #[serde(flatten)]
+    pub(crate) params: OpenAiModelParams,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RetrieveKnowledgeResponse {
+    pub(crate) is_success: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct OpenAiRequest {
     pub(crate) prompt: String,
     #[serde(flatten)]

@@ -4,7 +4,10 @@ use regex::Regex;
 use crate::{
     app::AppState,
     error::{Error, Result},
-    types::{OpenAiRequest, ProcessChunkRequest, ProcessChunkResponse},
+    types::{
+        OpenAiRequest, ProcessChunkRequest, ProcessChunkResponse, RetrieveKnowledgeRequest,
+        RetrieveKnowledgeResponse,
+    },
     utils::{kg_to_query_json, retrieve_prompt},
 };
 use log::{error, info};
@@ -61,4 +64,11 @@ pub async fn process_chunk_handler(
         is_success: true,
         hash: [0u8; 32],
     }))
+}
+
+pub async fn retrieve_knowledge(
+    State(state): State<AppState>,
+    Json(request): Json<RetrieveKnowledgeRequest>,
+) -> Result<Json<RetrieveKnowledgeResponse>> {
+    Ok(Json(RetrieveKnowledgeResponse { is_success: true }))
 }

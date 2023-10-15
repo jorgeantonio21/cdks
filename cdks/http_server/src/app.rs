@@ -1,11 +1,18 @@
 use std::sync::Arc;
 
-use axum::{extract::FromRef, routing::post, Router};
+use axum::{
+    extract::FromRef,
+    routing::{get, post},
+    Router,
+};
 use log::info;
 use serde_json::Value;
 use tokio::sync::mpsc::Sender;
 
-use crate::{client::OpenAiClient, handlers::process_chunk_handler};
+use crate::{
+    client::OpenAiClient,
+    handlers::{process_chunk_handler, retrieve_knowledge},
+};
 
 #[derive(Clone, FromRef)]
 pub struct AppState {
@@ -23,5 +30,6 @@ pub fn routes(tx_neo4j: Sender<Value>, client: OpenAiClient) -> Router {
 
     Router::new()
         .route("/", post(process_chunk_handler))
+        .route("/retrieve_knowledge", get(retrieve_knowledge))
         .with_state(app_state)
 }
