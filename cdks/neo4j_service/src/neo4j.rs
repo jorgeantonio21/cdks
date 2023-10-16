@@ -3,6 +3,8 @@ use log::{error, info};
 use neo4rs::{query, Config, Graph};
 use std::sync::Arc;
 
+// use crate::graph::{Entity, KnowledgeGraph, Relation};
+
 pub struct Neo4jConnection {
     graph: Arc<Graph>,
 }
@@ -69,8 +71,20 @@ impl Neo4jConnection {
             anyhow!("Failed to execute query {cypher_query}, with error: {e}")
         })?;
 
+        // let mut knowledge_graph = KnowledgeGraph::new(vec![], vec![]).unwrap();
         while let Some(token) = stream.next().await? {
             info!("Received new token: {:?}", token);
+            // let head_entity_str = token.get::<String>("n").unwrap();
+            // let tail_entity_str = token.get::<String>("m").unwrap();
+            // let relation_str = token.get::<String>("r").unwrap();
+
+            // let head_entity = Entity::new(head_entity_str.as_str());
+            // let tail_entity = Entity::new(&tail_entity_str);
+            // let relation = Relation::new(head_entity, tail_entity, &relation_str);
+
+            // knowledge_graph.add_new_edge(head_entity);
+            // knowledge_graph.add_new_edge(tail_entity);
+            // knowledge_graph.add_new_relation(relation);
         }
 
         info!("Commiting transaction...");

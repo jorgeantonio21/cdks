@@ -1,6 +1,6 @@
-use crate::graph::KnowledgeGraph;
 use anyhow::anyhow;
 use log::{error, info};
+use neo4j::graph::KnowledgeGraph;
 use neo4j::neo4j_builder::Neo4jQuery;
 use serde_json::Value;
 

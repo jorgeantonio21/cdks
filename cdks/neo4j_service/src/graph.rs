@@ -1,7 +1,7 @@
 use std::{collections::HashSet, marker::PhantomData};
 
+use crate::neo4j_builder::Neo4jQueryBuilder;
 use anyhow::{anyhow, Result};
-use neo4j::neo4j_builder::Neo4jQueryBuilder;
 use serde::{
     de::{MapAccess, Visitor},
     Deserialize, Deserializer, Serialize,
@@ -74,10 +74,25 @@ impl<'a, 'b: 'a> KnowledgeGraph<'a, 'b> {
             relations,
         }
     }
+
+    pub fn add_new_edge(&mut self, entity: Entity<'a>) {
+        self.entities.push(entity);
+    }
+
+    pub fn add_new_relation(&mut self, relation: Relation<'a, 'b>) -> Result<()> {
+        if !self.entities.contains(&relation.head) {
+            return Err(anyhow!("Head entity is not valid"));
+        }
+        if !self.entities.contains(&relation.tail) {
+            return Err(anyhow!("Tail entity is not valid"));
+        }
+        self.relations.push(relation);
+        Ok(())
+    }
 }
 
 impl<'a, 'b> KnowledgeGraph<'a, 'b> {
-    pub(crate) fn to_cypher_query_builder(self) -> Neo4jQueryBuilder {
+    pub fn to_cypher_query_builder(self) -> Neo4jQueryBuilder {
         let mut query_builder = Neo4jQueryBuilder::new();
         for entity in &self.entities {
             query_builder = query_builder.create_node(entity.0, &[]);
