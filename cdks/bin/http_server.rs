@@ -11,6 +11,7 @@ async fn main() -> Result<(), anyhow::Error> {
     dotenv().ok();
 
     let (tx_neo4j, rx_neo4j) = tokio::sync::mpsc::channel(100);
+    let (tx_neo4j_relations, rx_neo4j_relations) = tokio::sync::mpsc::channel(100);
 
     let config = ConfigBuilder::new()
         .uri("bolt://localhost:7687")
@@ -19,14 +20,19 @@ async fn main() -> Result<(), anyhow::Error> {
         .build()
         .expect("Failed to generate Neo4j Config");
     let connection = Neo4jConnection::new(config).await.unwrap();
-    let _join_handle = Neo4jService::spawn(rx_neo4j, Arc::new(RwLock::new(connection))).await;
+    let _join_handle = Neo4jService::spawn(
+        rx_neo4j,
+        tx_neo4j_relations,
+        Arc::new(RwLock::new(connection)),
+    )
+    .await;
 
     let endpoint = env::var("OPENAI_API_ENDPOINT").expect("Failed to load OPENAI_API_ENDPOINT");
 
     let client = OpenAiClient::new(endpoint);
     let config = Config::default();
 
-    run_service(tx_neo4j, client, config).await?;
+    run_service(tx_neo4j, rx_neo4j_relations, client, config).await?;
 
     Ok(())
 }

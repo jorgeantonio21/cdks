@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 #[tokio::main]
 async fn main() {
     let (tx, rx) = tokio::sync::mpsc::channel::<Value>(100);
+    let (tx_relations, _) = tokio::sync::mpsc::channel::<Value>(100);
     let config = neo4rs::ConfigBuilder::new()
         .uri("neo4j")
         .user("neo4j")
@@ -14,7 +15,8 @@ async fn main() {
         .build()
         .expect("Failed to generate Neo4j Config");
     let connection = Neo4jConnection::new(config).await.unwrap();
-    let _join_handle = Neo4jService::spawn(rx, Arc::new(RwLock::new(connection))).await;
+    let _join_handle =
+        Neo4jService::spawn(rx, tx_relations, Arc::new(RwLock::new(connection))).await;
 
     for _ in 0..10 {
         let tx_clone = tx.clone();

@@ -1,10 +1,13 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use log::info;
-use serde_json::Value;
+use log::{error, info};
+use serde_json::{json, Value};
 use tokio::{
-    sync::{mpsc::Receiver, RwLock},
+    sync::{
+        mpsc::{Receiver, Sender},
+        RwLock,
+    },
     task::JoinHandle,
 };
 
@@ -12,18 +15,21 @@ use crate::{neo4j::Neo4jConnection, neo4j_builder::Neo4jQuery};
 
 pub struct Neo4jService {
     rx_query: Receiver<Value>,
+    tx_relations: Sender<Value>,
     connection: Arc<RwLock<Neo4jConnection>>,
 }
 
 impl Neo4jService {
     pub async fn spawn(
         rx_query: Receiver<Value>,
+        tx_relations: Sender<Value>,
         connection: Arc<RwLock<Neo4jConnection>>,
     ) -> JoinHandle<Result<(), anyhow::Error>> {
         tokio::spawn(async move {
             info!("Starting Neo4jService...");
             Self {
                 rx_query,
+                tx_relations,
                 connection,
             }
             .run()
@@ -53,11 +59,24 @@ impl Neo4jService {
                 Neo4jQuery::Retrieve(node_ids) => {
                     info!("Executing query...");
 
-                    self.connection
+                    let mut stream = self
+                        .connection
                         .write()
                         .await
                         .retrieve_on_match(node_ids)
                         .await?;
+
+                    while let Some(token) = stream.as_mut().recv().await {
+                        let json_relation = json!({
+                            "head": token.0,
+                            "tail": token.1,
+                            "relation": token.2
+                        });
+                        self.tx_relations.send(json_relation).await.map_err(|e| {
+                            error!("Failed to send new JSON relation, with error: {e}");
+                            anyhow!("Failed to send new JSON relation, with error: {e}")
+                        })?;
+                    }
                 }
             }
         }

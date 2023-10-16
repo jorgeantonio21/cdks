@@ -7,7 +7,7 @@ use axum::{
 };
 use log::info;
 use serde_json::Value;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::{
     client::OpenAiClient,
@@ -20,7 +20,11 @@ pub struct AppState {
     pub(crate) client: Arc<OpenAiClient>,
 }
 
-pub fn routes(tx_neo4j: Sender<Value>, client: OpenAiClient) -> Router {
+pub fn routes(
+    tx_neo4j: Sender<Value>,
+    rx_neo4j_relations: Receiver<Value>,
+    client: OpenAiClient,
+) -> Router {
     let app_state = AppState {
         tx_neo4j,
         client: Arc::new(client),

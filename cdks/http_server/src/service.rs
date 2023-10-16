@@ -1,12 +1,13 @@
 use axum::Server;
 use serde_json::Value;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::{app::routes, client::OpenAiClient, config::Config, error::Error};
 use log::{error, info};
 
 pub async fn run_service<'a>(
     tx_neo4j: Sender<Value>,
+    rx_neo4j_relations: Receiver<Value>,
     client: OpenAiClient,
     config: Config,
 ) -> Result<(), anyhow::Error> {
@@ -19,7 +20,7 @@ pub async fn run_service<'a>(
             axum::Server::try_bind(&"127.0.0.1:0".parse().unwrap())
         })
         .map_err(|_| Error::FailedToStartService)?;
-    let server = server.serve(routes(tx_neo4j, client).into_make_service());
+    let server = server.serve(routes(tx_neo4j, rx_neo4j_relations, client).into_make_service());
 
     let bind_addr = if bind {
         socket_address
