@@ -84,5 +84,9 @@ pub async fn retrieve_knowledge(
         Error::InternalError
     })?;
 
+    while let Some(token) = state.rx_neo4j_relations.lock().await.recv().await {
+        info!("Received new token: {token}")
+    }
+
     Ok(Json(RetrieveKnowledgeResponse { is_success: true }))
 }

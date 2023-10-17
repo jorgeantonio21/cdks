@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use log::{error, info};
-use neo4rs::{query, Config, Graph};
+use neo4rs::{query, Config, Graph, Node, Relation};
 use std::sync::Arc;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -84,9 +84,9 @@ impl Neo4jConnection {
             while let Some(token) = stream.next().await? {
                 info!("Received new token: {:?}", token);
 
-                let head_entity = token.get::<String>("n").unwrap();
-                let tail_entity = token.get::<String>("m").unwrap();
-                let relation = token.get::<String>("r").unwrap();
+                let head_entity = token.get::<Node>("n").unwrap().labels()[0].clone();
+                let tail_entity = token.get::<Node>("m").unwrap().labels()[0].clone();
+                let relation = token.get::<Relation>("r").unwrap().typ();
 
                 sender
                     .send((head_entity, tail_entity, relation))
