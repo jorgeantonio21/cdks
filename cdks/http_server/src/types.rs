@@ -22,6 +22,7 @@ pub struct RetrieveKnowledgeRequest {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RetrieveKnowledgeResponse {
+    pub(crate) knowledge_graph_data: serde_json::Value,
     pub(crate) is_success: bool,
 }
 

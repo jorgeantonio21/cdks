@@ -84,9 +84,17 @@ pub async fn retrieve_knowledge(
         Error::InternalError
     })?;
 
-    while let Some(token) = state.rx_neo4j_relations.lock().await.recv().await {
-        info!("Received new token: {token}")
-    }
+    let knowledge_graph_data =
+        if let Some(data) = state.rx_neo4j_relations.lock().await.recv().await {
+            info!("Received new token: {data}");
+            data
+        } else {
+            error!("Failed to receive a response from Neo4j service");
+            return Err(Error::InternalError);
+        };
 
-    Ok(Json(RetrieveKnowledgeResponse { is_success: true }))
+    Ok(Json(RetrieveKnowledgeResponse {
+        knowledge_graph_data,
+        is_success: true,
+    }))
 }

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use log::{error, info};
-use serde_json::{json, Value};
+use serde_json::Value;
 use tokio::{
     sync::{
         mpsc::{Receiver, Sender},
@@ -59,28 +59,20 @@ impl Neo4jService {
                 Neo4jQuery::Retrieve(node_ids) => {
                     info!("Executing query...");
 
-                    let mut stream = self
+                    let output_kg = self
                         .connection
                         .write()
                         .await
                         .retrieve_on_match(node_ids)
                         .await?;
 
-                    while let Some(token) = stream.as_mut().recv().await {
-                        let json_relation = json!({
-                            "head": token.0,
-                            "tail": token.1,
-                            "relation": token.2
-                        });
-                        self.tx_relations.send(json_relation).await.map_err(|e| {
-                            error!("Failed to send new JSON relation, with error: {e}");
-                            anyhow!("Failed to send new JSON relation, with error: {e}")
-                        })?;
-                    }
+                    self.tx_relations.send(output_kg).await.map_err(|e| {
+                        error!("Failed to send new JSON relation, with error: {e}");
+                        anyhow!("Failed to send new JSON relation, with error: {e}")
+                    })?;
                 }
             }
         }
-
         Ok(())
     }
 }
