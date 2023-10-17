@@ -1,13 +1,16 @@
 use axum::{extract::State, Json};
+use embeddings::embeddings::Embeddings;
 use neo4j::neo4j_builder::Neo4jQuery;
 use regex::Regex;
+use serde_json::json;
+use tokio::{join, try_join};
 
 use crate::{
     app::AppState,
     error::{Error, Result},
     types::{
-        OpenAiRequest, ProcessChunkRequest, ProcessChunkResponse, RetrieveKnowledgeRequest,
-        RetrieveKnowledgeResponse,
+        OpenAiRequest, ProcessChunkRequest, ProcessChunkResponse, RelatedKnowledgeRequest,
+        RelatedKnowledgeResponse, RetrieveKnowledgeRequest, RetrieveKnowledgeResponse,
     },
     utils::{kg_to_query_json, retrieve_prompt},
 };
@@ -16,52 +19,71 @@ use log::{error, info};
 pub async fn process_chunk_handler(
     State(state): State<AppState>,
     Json(request): Json<ProcessChunkRequest>,
-) -> Json<Result<ProcessChunkResponse>> {
+) -> Result<Json<ProcessChunkResponse>> {
     let ProcessChunkRequest { chunk, params } = request;
     let prompt = retrieve_prompt(&chunk);
 
+    let embedding_handle = tokio::spawn(async move {
+        info!("Generating text chunks embeddings..");
+        let embedding = Embeddings::build_from_sentences(&[chunk]).map_err(|e| {
+            error!("Failed to generate chunk embedding, with error: {e}");
+            Error::InternalError
+        })?;
+
+        info!("Generated embedding: {:?}", embedding.data());
+
+        Ok::<(), crate::error::Error>(())
+    });
+
     info!("Making OpenAI call with prompt: {prompt}");
 
-    let openai_request = OpenAiRequest { prompt, params };
+    let open_ai_handle = tokio::spawn(async move {
+        let openai_request = OpenAiRequest { prompt, params };
+        match state.client.call(openai_request).await {
+            Ok(response) => {
+                let answer = response["choices"][0]["message"]["content"].to_string();
 
-    match state.client.call(openai_request).await {
-        Ok(response) => {
-            let answer = response["choices"][0]["message"]["content"].to_string();
+                info!("OpenAI answer is: {}", answer);
 
-            info!("OpenAI answer is: {}", answer);
+                let re = Regex::new(r"<kg>(.*?)</kg>").unwrap();
+                let knowledge_graph = re
+                    .captures(&answer)
+                    .and_then(|cap| cap.get(1))
+                    .map(|matched| matched.as_str().to_string());
 
-            let re = Regex::new(r"<kg>(.*?)</kg>").unwrap();
-            let knowledge_graph = re
-                .captures(&answer)
-                .and_then(|cap| cap.get(1))
-                .map(|matched| matched.as_str().to_string());
+                info!("Obtained knowledge graph: {:?}", knowledge_graph);
 
-            info!("Obtained knowledge graph: {:?}", knowledge_graph);
-
-            if let Some(kg) = knowledge_graph {
-                match kg_to_query_json(&kg) {
-                    Ok(query) => {
-                        if let Err(e) = state.tx_neo4j.send(query).await {
-                            error!("Failed to send query to Neo4J service, with error: {e}");
-                            return Json(Err(Error::InternalError));
-                        };
-                    }
-                    Err(e) => {
-                        error!(
+                if let Some(kg) = knowledge_graph {
+                    match kg_to_query_json(&kg) {
+                        Ok(query) => {
+                            if let Err(e) = state.tx_neo4j.send(query).await {
+                                error!("Failed to send query to Neo4J service, with error: {e}");
+                                return Err(Error::InternalError);
+                            };
+                        }
+                        Err(e) => {
+                            error!(
                             "Failed to generate neo4j query from knowledge graph, with error: {e}"
                         );
-                        return Json(Err(Error::InternalError));
+                            return Err(Error::InternalError);
+                        }
                     }
                 }
             }
+            Err(e) => {
+                error!("Failed to get OpenAI response, with error {e}");
+                return Err(Error::InternalError);
+            }
         }
-        Err(e) => {
-            error!("Failed to get OpenAI response, with error {e}");
-            return Json(Err(Error::InternalError));
-        }
+        Ok::<(), crate::error::Error>(())
+    });
+
+    if let Err(e) = try_join!(embedding_handle, open_ai_handle) {
+        error!("One or both tasks have failed, with error: {e}");
+        return Err(Error::InternalError);
     }
 
-    Json(Ok(ProcessChunkResponse {
+    Ok(Json(ProcessChunkResponse {
         is_success: true,
         hash: [0u8; 32],
     }))
@@ -96,5 +118,15 @@ pub async fn retrieve_knowledge(
     Ok(Json(RetrieveKnowledgeResponse {
         knowledge_graph_data,
         is_success: true,
+    }))
+}
+
+pub async fn get_related_knowledge(
+    State(state): State<AppState>,
+    Json(request): Json<RelatedKnowledgeRequest>,
+) -> Result<Json<RelatedKnowledgeResponse>> {
+    Ok(Json(RelatedKnowledgeResponse {
+        knowledge_graph_data: json!({}),
+        is_sucess: true,
     }))
 }

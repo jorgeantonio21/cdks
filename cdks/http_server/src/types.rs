@@ -27,6 +27,19 @@ pub struct RetrieveKnowledgeResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RelatedKnowledgeRequest {
+    pub(crate) chunk: String,
+    #[serde(flatten)]
+    pub(crate) params: OpenAiModelParams,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RelatedKnowledgeResponse {
+    pub(crate) knowledge_graph_data: serde_json::Value,
+    pub(crate) is_sucess: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct OpenAiRequest {
     pub(crate) prompt: String,
     #[serde(flatten)]
