@@ -1,9 +1,7 @@
 use anyhow::{anyhow, Error};
 
 use crate::embeddings::{Embeddings, DEFAULT_MODEL_EMBEDDING_SIZE};
-use core::num;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::sync::mpsc::{Receiver, Sender};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -44,7 +42,7 @@ impl EmbeddingsService {
             let message: Message = serde_json::from_str(&message)?;
             match message {
                 Message::ChunkText(chunk) => {
-                    self.embeddings.process_chunk_and_store(&chunk);
+                    self.embeddings.process_chunk_and_store(&chunk)?;
                 }
                 Message::Reset => {
                     let data = self.embeddings.reset();

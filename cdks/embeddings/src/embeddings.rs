@@ -1,5 +1,3 @@
-use std::path::Iter;
-
 use anyhow::{anyhow, Result};
 use rust_bert::pipelines::sentence_embeddings::{
     SentenceEmbeddingsBuilder, SentenceEmbeddingsModel, SentenceEmbeddingsModelType,
@@ -16,6 +14,7 @@ impl EmbeddingModel {
         Ok(Self(model))
     }
 
+    #[allow(dead_code)]
     fn new_with_model_type(model_type: SentenceEmbeddingsModelType) -> Result<Self> {
         let model = SentenceEmbeddingsBuilder::remote(model_type).create_model()?;
         Ok(Self(model))
@@ -82,7 +81,7 @@ impl Embeddings {
     }
 
     pub fn reset(&mut self) -> Vec<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]> {
-        self.data.drain(..).into_iter().collect()
+        self.data.drain(..).collect()
     }
 
     pub fn find_closest_embeddings(
@@ -95,12 +94,12 @@ impl Embeddings {
         let mut cosine_similarities_arrs: Vec<(f32, &[f32; DEFAULT_MODEL_EMBEDDING_SIZE])> =
             Vec::with_capacity(self.data.len());
         for stored_embedding in self.data.iter() {
-            let cosine_distance = cosine_similarity(stored_embedding, &embedding);
-            cosine_similarities_arrs.push((cosine_distance, &stored_embedding));
+            let cosine_similarity = cosine_similarity(stored_embedding, &embedding);
+            cosine_similarities_arrs.push((cosine_similarity, stored_embedding));
         }
         cosine_similarities_arrs.sort_by(|entry1, entry2| entry2.0.partial_cmp(&entry1.0).unwrap());
         cosine_similarities_arrs[..(num_queries as usize)]
-            .into_iter()
+            .iter()
             .map(|(_, arr)| **arr)
             .collect()
     }
@@ -115,6 +114,5 @@ fn cosine_similarity(
     let magnitude_arr1: f32 = arr1.iter().map(|x| x * x).sum::<f32>().sqrt();
     let magnitude_arr2: f32 = arr2.iter().map(|y| y * y).sum::<f32>().sqrt();
 
-    let cosine_similarity = dot_product / (magnitude_arr1 * magnitude_arr2);
-    cosine_similarity
+    dot_product / (magnitude_arr1 * magnitude_arr2)
 }
