@@ -3,7 +3,7 @@ use anyhow::{anyhow, Error};
 use crate::embeddings::{Embeddings, DEFAULT_MODEL_EMBEDDING_SIZE};
 use log::info;
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -38,18 +38,11 @@ impl EmbeddingsService {
         embedding_sender: Sender<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>,
     ) -> std::thread::JoinHandle<Result<(), Error>> {
         info!("Starting Embeddings service..");
-        std::thread::spawn(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-
-            rt.block_on(async move {
-                let mut embeddings_service = Self::new(chunk_receiver, embedding_sender)?;
-                embeddings_service.run().await
-            })
-        })
+        std::thread::spawn(move || Self::new(chunk_receiver, embedding_sender)?.run())
     }
 
-    pub async fn run(&mut self) -> Result<(), Error> {
-        while let Some(message) = self.chunk_receiver.recv().await {
+    pub fn run(&mut self) -> Result<(), Error> {
+        while let Ok(message) = self.chunk_receiver.recv() {
             info!("Received new message {}", message);
             let message: Message = serde_json::from_str(&message)?;
             match message {
@@ -61,7 +54,7 @@ impl EmbeddingsService {
                     let data = self.embeddings.reset();
 
                     for embedding in data {
-                        self.embedding_sender.send(embedding).await?;
+                        self.embedding_sender.send(embedding)?;
                     }
                 }
                 Message::Send((num_queries, query_embedding)) => {
@@ -74,12 +67,12 @@ impl EmbeddingsService {
                         .embeddings
                         .find_closest_embeddings(query_embedding, num_queries);
                     for embedding in embeddings {
-                        self.embedding_sender.send(embedding).await?;
+                        self.embedding_sender.send(embedding)?;
                     }
                 }
                 Message::ProcessChunk(chunk) => {
                     let embedding = self.embeddings.process_chunk(&chunk)?;
-                    self.embedding_sender.send(embedding).await?;
+                    self.embedding_sender.send(embedding)?;
                 }
                 Message::Stop => {
                     break;

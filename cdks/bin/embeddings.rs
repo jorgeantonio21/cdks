@@ -5,9 +5,9 @@ use log::info;
 async fn main() {
     env_logger::init();
 
-    let (chunk_sender, chunk_receiver) = tokio::sync::mpsc::channel::<String>(100);
-    let (embeddings_sender, mut embeddings_receiver) =
-        tokio::sync::mpsc::channel::<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>(100);
+    let (chunk_sender, chunk_receiver) = std::sync::mpsc::channel::<String>();
+    let (embeddings_sender, embeddings_receiver) =
+        std::sync::mpsc::channel::<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>();
     let _join_handle = EmbeddingsService::spawn(chunk_receiver, embeddings_sender);
     // _join_handle.join().expect("Failed to execute JoinHandle");
 
@@ -15,53 +15,39 @@ async fn main() {
 
     chunk_sender
         .send(r#"{"chunk_text":"Hello world !"}"#.to_string())
-        .await
         .expect("Failed to send message");
     chunk_sender
         .send(r#"{"chunk_text":"Knowledge graphs are great !"}"#.to_string())
-        .await
         .expect("Failed to send message");
     chunk_sender
         .send(r#"{"chunk_text":"LLMs are amazing, as well !"}"#.to_string())
-        .await
         .expect("Failed to send message");
     chunk_sender
         .send(r#"{"chunk_text":"Integrated circuits complexity is bound by physical constraints. Namely, the number of transistor that can be integrated in current chips."}"#.to_string())
-        .await
         .expect("Failed to send message");
 
     chunk_sender
         .send(String::from(r#"{"process_chunk":"Integrated circuits complexity is bound by physical constraints. Namely, the number of transistor that can be integrated in current chips."}"#))
-        .await
         .expect("Failed to send message");
 
-    let embedding = embeddings_receiver
-        .recv()
-        .await
-        .expect("Failed to get embedding");
+    let embedding = embeddings_receiver.recv().expect("Failed to get embedding");
     chunk_sender
         .send(format!(r#"{{"send":[1,{:?}]}}"#, embedding))
-        .await
         .expect("Failed to send message");
-    let closer_embedding = embeddings_receiver
-        .recv()
-        .await
-        .expect("Failed to get embedding");
+    let closer_embedding = embeddings_receiver.recv().expect("Failed to get embedding");
 
     chunk_sender
         .send(r#""reset""#.to_string())
-        .await
         .expect("Failed to send message");
     let mut all_stored_embeddings = Vec::with_capacity(3);
 
-    for _ in 0..4 {
+    (0..4).for_each(|_| {
         let embedding = embeddings_receiver
             .recv()
-            .await
             .expect("Failed to received new message");
         info!("Received new embedding");
         all_stored_embeddings.push(embedding);
-    }
+    });
 
     assert_eq!(
         all_stored_embeddings[all_stored_embeddings.len() - 1],
