@@ -1,9 +1,8 @@
 use axum::{extract::State, Json};
-use embeddings::embeddings::Embeddings;
 use neo4j::neo4j_builder::Neo4jQuery;
 use regex::Regex;
 use serde_json::json;
-use tokio::{join, try_join};
+use tokio::join;
 
 use crate::{
     app::AppState,
@@ -22,21 +21,26 @@ pub async fn process_chunk_handler(
 ) -> Result<Json<ProcessChunkResponse>> {
     let ProcessChunkRequest { chunk, params } = request;
     let prompt = retrieve_prompt(&chunk);
-    let embedding_handle = tokio::spawn(async move {
-        info!("Generating text chunks embeddings, for chunk = {chunk}..");
-        let embedding = Embeddings::build_from_sentences(&[chunk]).map_err(|e| {
-            error!("Failed to generate chunk embedding, with error: {e}");
-            Error::InternalError
-        })?;
 
-        info!("Generated embedding: {:?}", embedding.data());
-
-        Ok::<(), crate::error::Error>(())
+    // send text chunk to the embeddings service to be processed.
+    let embeddings_join_handle = tokio::spawn(async move {
+        let send_string = format!(r#"{{"chunk_text":"{}"}}"#, chunk);
+        info!("send_string = {send_string}");
+        state
+            .embeddings_text_sender
+            .lock()
+            .await
+            .send(chunk)
+            .map_err(|e| {
+                error!("Failed to send chunk to embeddings service, with error: {e}");
+                Error::InternalError
+            })?;
+        Ok::<(), Error>(())
     });
 
     info!("Making OpenAI call with prompt: {prompt}");
 
-    let open_ai_handle = tokio::spawn(async move {
+    let openai_join_handle = tokio::spawn(async move {
         let openai_request = OpenAiRequest { prompt, params };
         match state.client.call(openai_request).await {
             Ok(response) => {
@@ -74,10 +78,10 @@ pub async fn process_chunk_handler(
                 return Err(Error::InternalError);
             }
         }
-        Ok::<(), crate::error::Error>(())
+        Ok::<(), Error>(())
     });
 
-    let (embedding_result, openai_result) = join!(embedding_handle, open_ai_handle);
+    let (embedding_result, openai_result) = join!(embeddings_join_handle, openai_join_handle);
 
     match (embedding_result, openai_result) {
         (Ok(_), Ok(_)) => {

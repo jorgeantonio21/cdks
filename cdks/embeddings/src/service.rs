@@ -3,7 +3,7 @@ use anyhow::{anyhow, Error};
 use crate::embeddings::{Embeddings, DEFAULT_MODEL_EMBEDDING_SIZE};
 use log::info;
 use serde::{Deserialize, Serialize};
-use std::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -38,21 +38,30 @@ impl EmbeddingsService {
         embedding_sender: Sender<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>,
     ) -> std::thread::JoinHandle<Result<(), Error>> {
         info!("Starting Embeddings service..");
-        std::thread::spawn(move || Self::new(chunk_receiver, embedding_sender)?.run())
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+
+            rt.block_on(async move {
+                let mut embeddings_service = Self::new(chunk_receiver, embedding_sender)?;
+                embeddings_service.run().await
+            })
+        })
     }
 
-    pub fn run(&mut self) -> Result<(), Error> {
-        while let Ok(message) = self.chunk_receiver.recv() {
+    pub async fn run(&mut self) -> Result<(), Error> {
+        while let Some(message) = self.chunk_receiver.recv().await {
+            info!("Received new message {}", message);
             let message: Message = serde_json::from_str(&message)?;
             match message {
                 Message::ChunkText(chunk) => {
+                    info!("Process and storing new received text chunk..");
                     self.embeddings.process_chunk_and_store(&chunk)?;
                 }
                 Message::Reset => {
                     let data = self.embeddings.reset();
 
                     for embedding in data {
-                        self.embedding_sender.send(embedding)?;
+                        self.embedding_sender.send(embedding).await?;
                     }
                 }
                 Message::Send((num_queries, query_embedding)) => {
@@ -65,12 +74,12 @@ impl EmbeddingsService {
                         .embeddings
                         .find_closest_embeddings(query_embedding, num_queries);
                     for embedding in embeddings {
-                        self.embedding_sender.send(embedding)?;
+                        self.embedding_sender.send(embedding).await?;
                     }
                 }
                 Message::ProcessChunk(chunk) => {
                     let embedding = self.embeddings.process_chunk(&chunk)?;
-                    self.embedding_sender.send(embedding)?;
+                    self.embedding_sender.send(embedding).await?;
                 }
                 Message::Stop => {
                     break;
@@ -112,5 +121,9 @@ mod tests {
             String::from(r#""stop""#),
             serde_json::to_string(&message).unwrap()
         );
+
+        let send_string = r#"{"chunk_text":"The complexity of an integrated circuit is bounded by physical limitations on the number of transistors that can be put onto one chip, the number of package terminations that can connect the processor to other parts of the system, the number of interconnections it is possible to make on the chip, and the heat that the chip can dissipate. Advancing technology makes more complex and powerful chips feasible to manufacture. A minimal hypothetical microprocessor might include only an arithmetic logic unit (ALU), and a control logic section. The ALU performs addition, subtraction, and operations such as AND or OR. Each operation of the ALU sets one or more flags in a status register, which indicate the results of the last operation (zero value, negative number, overflow, or others). The control logic retrieves instruction codes from memory and initiates the sequence of operations required for the ALU to carry out the instruction. A single operation code might affect many individual data paths, registers, and other elements of the processor. As integrated circuit technology advanced, it was feasible to manufacture more and more complex processors on a single chip. The size of data objects became larger; allowing more transistors on a chip allowed word sizes to increase from 4- and 8-bit words up to today's 64-bit words. Additional features were added to the processor architecture; more on-chip registers sped up programs, and complex instructions could be used to make more compact programs. Floating-point arithmetic, for example, was often not available on 8-bit microprocessors, but had to be carried out in software. Integration of the floating-point unit, first as a separate integrated circuit and then as part of the same microprocessor chip, sped up floating-point calculations. Occasionally, physical limitations of integrated circuits made such practices as a bit slice approach necessary. Instead of processing all of a long word on one integrated circuit, multiple circuits in parallel processed subsets of each word. While this required extra logic to handle, for example, carry and overflow within each slice, the result was a system that could handle, for example, 32-bit words using integrated circuits with a capacity for only four bits each. The ability to put large numbers of transistors on one chip makes it feasible to integrate memory on the same die as the processor. This CPU cache has the advantage of faster access than off-chip memory and increases the processing speed of the system for many applications. Processor clock frequency has increased more rapidly than external memory speed, so cache memory is necessary if the processor is not to be delayed by slower external memory."}"#;
+        let message = Message::ChunkText("The complexity of an integrated circuit is bounded by physical limitations on the number of transistors that can be put onto one chip, the number of package terminations that can connect the processor to other parts of the system, the number of interconnections it is possible to make on the chip, and the heat that the chip can dissipate. Advancing technology makes more complex and powerful chips feasible to manufacture. A minimal hypothetical microprocessor might include only an arithmetic logic unit (ALU), and a control logic section. The ALU performs addition, subtraction, and operations such as AND or OR. Each operation of the ALU sets one or more flags in a status register, which indicate the results of the last operation (zero value, negative number, overflow, or others). The control logic retrieves instruction codes from memory and initiates the sequence of operations required for the ALU to carry out the instruction. A single operation code might affect many individual data paths, registers, and other elements of the processor. As integrated circuit technology advanced, it was feasible to manufacture more and more complex processors on a single chip. The size of data objects became larger; allowing more transistors on a chip allowed word sizes to increase from 4- and 8-bit words up to today's 64-bit words. Additional features were added to the processor architecture; more on-chip registers sped up programs, and complex instructions could be used to make more compact programs. Floating-point arithmetic, for example, was often not available on 8-bit microprocessors, but had to be carried out in software. Integration of the floating-point unit, first as a separate integrated circuit and then as part of the same microprocessor chip, sped up floating-point calculations. Occasionally, physical limitations of integrated circuits made such practices as a bit slice approach necessary. Instead of processing all of a long word on one integrated circuit, multiple circuits in parallel processed subsets of each word. While this required extra logic to handle, for example, carry and overflow within each slice, the result was a system that could handle, for example, 32-bit words using integrated circuits with a capacity for only four bits each. The ability to put large numbers of transistors on one chip makes it feasible to integrate memory on the same die as the processor. This CPU cache has the advantage of faster access than off-chip memory and increases the processing speed of the system for many applications. Processor clock frequency has increased more rapidly than external memory speed, so cache memory is necessary if the processor is not to be delayed by slower external memory.".to_string());
+        assert_eq!(send_string, serde_json::to_string(&message).unwrap())
     }
 }
