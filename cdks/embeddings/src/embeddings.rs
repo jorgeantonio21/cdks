@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use log::info;
 use rust_bert::pipelines::sentence_embeddings::{
     SentenceEmbeddingsBuilder, SentenceEmbeddingsModel, SentenceEmbeddingsModelType,
 };
@@ -58,21 +59,25 @@ impl Embeddings {
     }
 
     pub fn process_chunk_and_store(&mut self, sentence: &str) -> Result<()> {
+        info!("Received new sentence: {} to store and process", sentence);
         let embedding = self.model.0.encode(&[sentence])?;
         let embedding: [f32; DEFAULT_MODEL_EMBEDDING_SIZE] = embedding[0]
             .as_slice()
             .try_into()
             .map_err(|e| anyhow!("Incorrect length, error: {e}"))?;
+        info!("Current embedding is: {:?}", embedding);
         self.data.push(embedding);
         Ok(())
     }
 
     pub fn process_chunk(&self, sentence: &str) -> Result<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]> {
+        info!("Received new sentence: {} to process", sentence);
         let embedding = self.model.0.encode(&[sentence])?;
         let embedding: [f32; DEFAULT_MODEL_EMBEDDING_SIZE] = embedding[0]
             .as_slice()
             .try_into()
             .map_err(|e| anyhow!("Incorrect length, error: {e}"))?;
+        info!("Current embedding is: {:?}", embedding);
         Ok(embedding)
     }
 

@@ -1,15 +1,18 @@
 use anyhow::{anyhow, Error};
 
 use crate::embeddings::{Embeddings, DEFAULT_MODEL_EMBEDDING_SIZE};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{Receiver, Sender};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Message {
     ChunkText(String),
     Reset,
     Send((u32, Vec<f32>)),
     ProcessChunk(String),
+    Stop,
 }
 
 pub struct EmbeddingsService {
@@ -34,6 +37,7 @@ impl EmbeddingsService {
         chunk_receiver: Receiver<String>,
         embedding_sender: Sender<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>,
     ) -> std::thread::JoinHandle<Result<(), Error>> {
+        info!("Starting Embeddings service..");
         std::thread::spawn(move || Self::new(chunk_receiver, embedding_sender)?.run())
     }
 
@@ -68,8 +72,45 @@ impl EmbeddingsService {
                     let embedding = self.embeddings.process_chunk(&chunk)?;
                     self.embedding_sender.send(embedding)?;
                 }
+                Message::Stop => {
+                    break;
+                }
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn message_to_string() {
+        let message = Message::ChunkText("Hello world !".to_string());
+        assert_eq!(
+            String::from(r#"{"chunk_text":"Hello world !"}"#),
+            serde_json::to_string(&message).unwrap()
+        );
+        let message = Message::ProcessChunk("Hello world!".to_string());
+        assert_eq!(
+            String::from(r#"{"process_chunk":"Hello world!"}"#),
+            serde_json::to_string(&message).unwrap()
+        );
+        let message = Message::Send((0, vec![1.0, 2.0, 3.0]));
+        assert_eq!(
+            String::from(r#"{"send":[0,[1.0,2.0,3.0]]}"#),
+            serde_json::to_string(&message).unwrap()
+        );
+        let message = Message::Reset;
+        assert_eq!(
+            String::from(r#""reset""#),
+            serde_json::to_string(&message).unwrap()
+        );
+        let message = Message::Stop;
+        assert_eq!(
+            String::from(r#""stop""#),
+            serde_json::to_string(&message).unwrap()
+        );
     }
 }
