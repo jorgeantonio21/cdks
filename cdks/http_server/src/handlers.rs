@@ -22,9 +22,8 @@ pub async fn process_chunk_handler(
 ) -> Result<Json<ProcessChunkResponse>> {
     let ProcessChunkRequest { chunk, params } = request;
     let prompt = retrieve_prompt(&chunk);
-
     let embedding_handle = tokio::spawn(async move {
-        info!("Generating text chunks embeddings..");
+        info!("Generating text chunks embeddings, for chunk = {chunk}..");
         let embedding = Embeddings::build_from_sentences(&[chunk]).map_err(|e| {
             error!("Failed to generate chunk embedding, with error: {e}");
             Error::InternalError
@@ -78,15 +77,32 @@ pub async fn process_chunk_handler(
         Ok::<(), crate::error::Error>(())
     });
 
-    if let Err(e) = try_join!(embedding_handle, open_ai_handle) {
-        error!("One or both tasks have failed, with error: {e}");
-        return Err(Error::InternalError);
-    }
+    let (embedding_result, openai_result) = join!(embedding_handle, open_ai_handle);
 
-    Ok(Json(ProcessChunkResponse {
-        is_success: true,
-        hash: [0u8; 32],
-    }))
+    match (embedding_result, openai_result) {
+        (Ok(_), Ok(_)) => {
+            return Ok(Json(ProcessChunkResponse {
+                is_success: true,
+                hash: [0u8; 32],
+            }))
+        }
+        (Err(e), Ok(_)) => {
+            // Task 1 failed
+            error!("Task 1 failed, with error: {}", e);
+            return Err(Error::InternalError);
+        }
+        (Ok(_), Err(e)) => {
+            // Task 2 failed
+            error!("Task 2 failed, with error: {}", e);
+            return Err(Error::InternalError);
+        }
+        (Err(e1), Err(e2)) => {
+            // Both tasks failed
+            error!("Task 1 failed: with error {}", e1);
+            error!("Task 2 failed: with error {}", e2);
+            return Err(Error::InternalError);
+        }
+    }
 }
 
 pub async fn retrieve_knowledge(
