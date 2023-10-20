@@ -62,7 +62,7 @@ impl EmbeddingsService {
                     let embeddings = self
                         .embeddings
                         .find_closest_embeddings(query_embedding, num_queries);
-                    for embeddings in embeddings {
+                    for embedding in embeddings {
                         self.embedding_sender.send(embedding)?;
                     }
                 }
