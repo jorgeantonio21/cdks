@@ -43,8 +43,9 @@ impl EmbeddingsService {
 
     pub fn run(&mut self) -> Result<(), Error> {
         while let Ok(message) = self.chunk_receiver.recv() {
-            info!("Received new message {}", message);
+            info!("Received new message: {}", message);
             let message: Message = serde_json::from_str(&message)?;
+            info!("Message deserialized: {:?}", message);
             match message {
                 Message::ChunkText(chunk) => {
                     info!("Process and storing new received text chunk..");

@@ -25,12 +25,11 @@ pub async fn process_chunk_handler(
     // send text chunk to the embeddings service to be processed.
     let embeddings_join_handle = tokio::spawn(async move {
         let send_string = format!(r#"{{"chunk_text":"{}"}}"#, chunk);
-        info!("send_string = {send_string}");
         state
             .embeddings_text_sender
             .lock()
             .await
-            .send(chunk)
+            .send(send_string)
             .map_err(|e| {
                 error!("Failed to send chunk to embeddings service, with error: {e}");
                 Error::InternalError
