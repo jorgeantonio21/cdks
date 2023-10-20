@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Error};
 
 use crate::embeddings::{Embeddings, DEFAULT_MODEL_EMBEDDING_SIZE};
+use core::num;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::mpsc::{Receiver, Sender};
@@ -58,6 +59,12 @@ impl EmbeddingsService {
                     }
                     let query_embedding: [f32; DEFAULT_MODEL_EMBEDDING_SIZE] =
                         query_embedding.try_into().unwrap();
+                    let embeddings = self
+                        .embeddings
+                        .find_closest_embeddings(query_embedding, num_queries);
+                    for embeddings in embeddings {
+                        self.embedding_sender.send(embedding)?;
+                    }
                 }
                 Message::ProcessChunk(chunk) => {
                     let embedding = self.embeddings.process_chunk(&chunk)?;

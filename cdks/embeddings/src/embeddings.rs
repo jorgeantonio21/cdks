@@ -89,10 +89,32 @@ impl Embeddings {
         &self,
         embedding: [f32; DEFAULT_MODEL_EMBEDDING_SIZE],
         num_queries: u32,
-    ) -> Result<Vec<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>> {
+    ) -> Vec<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]> {
         // This is a very inneficient implementation. We will want to refactor this to use KDTrees. See
         // https://sachaarbonel.medium.com/how-to-build-a-semantic-search-engine-in-rust-e96e6378cfd9 and https://en.wikipedia.org/wiki/K-d_tree
-
-        Ok(vec![])
+        let mut cosine_similarities_arrs: Vec<(f32, [f32; DEFAULT_MODEL_EMBEDDING_SIZE])> =
+            Vec::with_capacity(self.data.len());
+        for stored_embedding in self.data.iter() {
+            let cosine_distance = cosine_similarity(sored_embedding, embedding);
+            cosine_similarities_arrs.push((cosine_distance, stored_embedding));
+        }
+        cosine_similarities_arrs.sort_by(|(similarity, _)| similarity);
+        cosine_similarities_arrs[..num_queries]
+            .into_iter()
+            .map(|(_, arr)| arr)
+            .collect()
     }
+}
+
+fn cosine_similarity(
+    &arr1: [f32; DEFAULT_MODEL_EMBEDDING_SIZE],
+    &arr2: [f32; DEFAULT_MODEL_EMBEDDING_SIZE],
+) -> f32 {
+    let dot_product: f32 = arr1.iter().zip(arr2.iter()).map(|(x, y)| x * y).sum();
+
+    let magnitude_arr1: f32 = arr1.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let magnitude_arr2: f32 = arr2.iter().map(|y| y * y).sum::<f32>().sqrt();
+
+    let cosine_similarity = dot_product / (magnitude_arr1 * magnitude_arr2);
+    cosine_similarity
 }
