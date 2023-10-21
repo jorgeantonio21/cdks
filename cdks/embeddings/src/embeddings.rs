@@ -24,7 +24,7 @@ impl EmbeddingModel {
 
 pub struct Embeddings {
     model: EmbeddingModel,
-    data: Vec<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>,
+    data: Vec<(u32, [f32; DEFAULT_MODEL_EMBEDDING_SIZE])>,
 }
 
 impl Embeddings {
@@ -46,19 +46,19 @@ impl Embeddings {
         let model = EmbeddingModel::default_model()?;
         let mut data = vec![];
 
-        for sentence in sentences {
+        for (id, sentence) in sentences.iter().enumerate() {
             let embedding = model.0.encode(&[sentence])?;
             let embedding: [f32; DEFAULT_MODEL_EMBEDDING_SIZE] = embedding[0]
                 .as_slice()
                 .try_into()
                 .map_err(|e| anyhow!("Incorrect length, error: {e}"))?;
-            data.push(embedding);
+            data.push((id as u32, embedding));
         }
 
         Ok(Self { model, data })
     }
 
-    pub fn process_chunk_and_store(&mut self, sentence: &str) -> Result<()> {
+    pub fn process_chunk_and_store(&mut self, id: u32, sentence: &str) -> Result<()> {
         info!("Received new sentence: {} to store and process", sentence);
         let embedding = self.model.0.encode(&[sentence])?;
         let embedding: [f32; DEFAULT_MODEL_EMBEDDING_SIZE] = embedding[0]
@@ -66,7 +66,8 @@ impl Embeddings {
             .try_into()
             .map_err(|e| anyhow!("Incorrect length, error: {e}"))?;
         info!("Current embedding is: {:?}", embedding);
-        self.data.push(embedding);
+        self.data.push((id, embedding));
+        info!("New vector embedding stored!");
         Ok(())
     }
 
@@ -81,12 +82,12 @@ impl Embeddings {
         Ok(embedding)
     }
 
-    pub fn data(&self) -> &[[f32; DEFAULT_MODEL_EMBEDDING_SIZE]] {
+    pub fn data(&self) -> &[(u32, [f32; DEFAULT_MODEL_EMBEDDING_SIZE])] {
         &self.data
     }
 
     pub fn reset(&mut self) -> Vec<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]> {
-        self.data.drain(..).collect()
+        self.data.drain(..).map(|(_, d)| d).collect()
     }
 
     pub fn find_closest_embeddings(
@@ -98,7 +99,7 @@ impl Embeddings {
         // https://sachaarbonel.medium.com/how-to-build-a-semantic-search-engine-in-rust-e96e6378cfd9 and https://en.wikipedia.org/wiki/K-d_tree
         let mut cosine_similarities_arrs: Vec<(f32, &[f32; DEFAULT_MODEL_EMBEDDING_SIZE])> =
             Vec::with_capacity(self.data.len());
-        for stored_embedding in self.data.iter() {
+        for (_, stored_embedding) in self.data.iter() {
             let cosine_similarity = cosine_similarity(stored_embedding, &embedding);
             cosine_similarities_arrs.push((cosine_similarity, stored_embedding));
         }

@@ -92,10 +92,10 @@ impl<'a, 'b: 'a> KnowledgeGraph<'a, 'b> {
 }
 
 impl<'a, 'b> KnowledgeGraph<'a, 'b> {
-    pub fn to_cypher_query_builder(self) -> Neo4jQueryBuilder {
+    pub fn to_cypher_query_builder(self, properties: &[(&str, &str)]) -> Neo4jQueryBuilder {
         let mut query_builder = Neo4jQueryBuilder::new();
         for entity in &self.entities {
-            query_builder = query_builder.create_node(entity.0, &[]);
+            query_builder = query_builder.create_node(entity.0, properties);
         }
         for relation in &self.relations {
             query_builder = query_builder

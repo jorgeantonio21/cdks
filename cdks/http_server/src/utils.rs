@@ -16,7 +16,7 @@ pub(crate) fn retrieve_prompt(chunk: &str) -> String {
     prompt
 }
 
-pub(crate) fn kg_to_query_json(kg: &str) -> anyhow::Result<Value> {
+pub(crate) fn kg_to_query_json(kg: &str, id: u32) -> anyhow::Result<Value> {
     let kg_str = unescape_json(kg);
     info!("KNOWLEDGE GRAPH: {}", kg);
     let graph = serde_json::from_str::<KnowledgeGraph>(&kg_str).map_err(|e| {
@@ -32,7 +32,7 @@ pub(crate) fn kg_to_query_json(kg: &str) -> anyhow::Result<Value> {
 
     info!("Retrieved Knowledge Graph: {:?}", graph);
 
-    let query_builder = graph.to_cypher_query_builder();
+    let query_builder = graph.to_cypher_query_builder(&[("query_id", format!("{}", id).as_str())]);
     serde_json::to_value(&Neo4jQuery::Builder(query_builder))
         .map_err(|e| anyhow!("Failed to convert to query builder, with error: {e}"))
 }

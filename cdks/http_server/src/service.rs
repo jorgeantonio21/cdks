@@ -8,7 +8,7 @@ use crate::{app::routes, client::OpenAiClient, config::Config, error::Error};
 use log::{error, info};
 
 pub async fn run_service<'a>(
-    tx_neo4j: Sender<Value>,
+    tx_neo4j: Sender<(u32, Value)>,
     rx_neo4j_relations: Receiver<Value>,
     client: OpenAiClient,
     embeddings_receiver: mpsc::Receiver<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>,

@@ -1,4 +1,4 @@
-use std::sync::{mpsc, Arc};
+use std::sync::{atomic::AtomicU32, mpsc, Arc};
 
 use axum::{
     extract::FromRef,
@@ -20,7 +20,8 @@ use crate::{
 
 #[derive(Clone, FromRef)]
 pub struct AppState {
-    pub(crate) tx_neo4j: Sender<Value>,
+    pub(crate) request_id: Arc<AtomicU32>,
+    pub(crate) tx_neo4j: Sender<(u32, Value)>,
     pub(crate) rx_neo4j_relations: Arc<Mutex<Receiver<Value>>>,
     pub(crate) client: Arc<OpenAiClient>,
     pub(crate) embeddings_receiver: Arc<Mutex<mpsc::Receiver<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>>>,
@@ -28,13 +29,14 @@ pub struct AppState {
 }
 
 pub fn routes(
-    tx_neo4j: Sender<Value>,
+    tx_neo4j: Sender<(u32, Value)>,
     rx_neo4j_relations: Receiver<Value>,
     client: OpenAiClient,
     embeddings_receiver: mpsc::Receiver<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>,
     embeddings_text_sender: mpsc::Sender<String>,
 ) -> Router {
     let app_state = AppState {
+        request_id: Arc::new(AtomicU32::new(0)),
         tx_neo4j,
         rx_neo4j_relations: Arc::new(Mutex::new(rx_neo4j_relations)),
         client: Arc::new(client),

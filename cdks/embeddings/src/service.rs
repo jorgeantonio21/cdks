@@ -8,7 +8,7 @@ use std::sync::mpsc::{Receiver, Sender};
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Message {
-    ChunkText(String),
+    ChunkText((u32, String)),
     Reset,
     Send((u32, Vec<f32>)),
     ProcessChunk(String),
@@ -47,9 +47,9 @@ impl EmbeddingsService {
             let message: Message = serde_json::from_str(&message)?;
             info!("Message deserialized: {:?}", message);
             match message {
-                Message::ChunkText(chunk) => {
+                Message::ChunkText((id, chunk)) => {
                     info!("Process and storing new received text chunk..");
-                    self.embeddings.process_chunk_and_store(&chunk)?;
+                    self.embeddings.process_chunk_and_store(id, &chunk)?;
                 }
                 Message::Reset => {
                     let data = self.embeddings.reset();

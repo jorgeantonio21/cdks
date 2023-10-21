@@ -23,8 +23,9 @@ pub async fn process_chunk_handler(
     let prompt = retrieve_prompt(&chunk);
 
     // send text chunk to the embeddings service to be processed.
+    let request_id = state.request_id.clone();
     let embeddings_join_handle = tokio::spawn(async move {
-        let send_string = format!(r#"{{"chunk_text":"{}"}}"#, chunk);
+        let send_string = format!(r#"{{"id": {:?}, "chunk_text":"{}"}}"#, request_id, chunk);
         state
             .embeddings_text_sender
             .lock()
@@ -39,6 +40,7 @@ pub async fn process_chunk_handler(
 
     info!("Making OpenAI call with prompt: {prompt}");
 
+    let request_id = state.request_id.clone();
     let openai_join_handle = tokio::spawn(async move {
         let openai_request = OpenAiRequest { prompt, params };
         match state.client.call(openai_request).await {
@@ -56,9 +58,16 @@ pub async fn process_chunk_handler(
                 info!("Obtained knowledge graph: {:?}", knowledge_graph);
 
                 if let Some(kg) = knowledge_graph {
-                    match kg_to_query_json(&kg) {
+                    match kg_to_query_json(
+                        &kg,
+                        request_id.load(std::sync::atomic::Ordering::SeqCst),
+                    ) {
                         Ok(query) => {
-                            if let Err(e) = state.tx_neo4j.send(query).await {
+                            if let Err(e) = state
+                                .tx_neo4j
+                                .send((request_id.load(std::sync::atomic::Ordering::SeqCst), query))
+                                .await
+                            {
                                 error!("Failed to send query to Neo4J service, with error: {e}");
                                 return Err(Error::InternalError);
                             };
@@ -84,10 +93,13 @@ pub async fn process_chunk_handler(
 
     match (embedding_result, openai_result) {
         (Ok(_), Ok(_)) => {
+            state
+                .request_id
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             return Ok(Json(ProcessChunkResponse {
                 is_success: true,
                 hash: [0u8; 32],
-            }))
+            }));
         }
         (Err(e), Ok(_)) => {
             // Task 1 failed
@@ -120,10 +132,20 @@ pub async fn retrieve_knowledge(
         error!("Failed to build JSON from node indices, with error: {e}");
         Error::InternalError
     })?;
-    state.tx_neo4j.send(query).await.map_err(|e| {
-        error!("Failed to build JSON from node indices, with error: {e}");
-        Error::InternalError
-    })?;
+    state
+        .tx_neo4j
+        .send((
+            state
+                .request_id
+                .clone()
+                .load(std::sync::atomic::Ordering::SeqCst),
+            query,
+        ))
+        .await
+        .map_err(|e| {
+            error!("Failed to build JSON from node indices, with error: {e}");
+            Error::InternalError
+        })?;
 
     let knowledge_graph_data =
         if let Some(data) = state.rx_neo4j_relations.lock().await.recv().await {
@@ -134,6 +156,9 @@ pub async fn retrieve_knowledge(
             return Err(Error::InternalError);
         };
 
+    state
+        .request_id
+        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     Ok(Json(RetrieveKnowledgeResponse {
         knowledge_graph_data,
         is_success: true,
