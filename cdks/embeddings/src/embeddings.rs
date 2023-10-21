@@ -94,7 +94,7 @@ impl Embeddings {
         &self,
         embedding: [f32; DEFAULT_MODEL_EMBEDDING_SIZE],
         num_queries: u32,
-    ) -> Vec<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]> {
+    ) -> Vec<u32s> {
         // This is a very inneficient implementation. We will want to refactor this to use KDTrees. See
         // https://sachaarbonel.medium.com/how-to-build-a-semantic-search-engine-in-rust-e96e6378cfd9 and https://en.wikipedia.org/wiki/K-d_tree
         let mut cosine_similarities_arrs: Vec<(f32, &[f32; DEFAULT_MODEL_EMBEDDING_SIZE])> =

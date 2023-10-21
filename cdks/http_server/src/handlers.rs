@@ -155,6 +155,26 @@ pub async fn get_related_knowledge(
     State(state): State<AppState>,
     Json(request): Json<RelatedKnowledgeRequest>,
 ) -> Result<Json<RelatedKnowledgeResponse>> {
+    let RelatedKnowledgeRequest { chunk, params } = request;
+
+    state
+        .embeddings_text_sender
+        .lock()
+        .await
+        .send(chunk)
+        .map_err(|e| {
+            error!("Failed to send chunk to embeddings service, with error: {e}");
+            Error::InternalError
+        })?;
+
+    let knowledge_chunk = state.embeddings_receiver.lock().await.recv().map_err(|e| {
+        error!(
+            "Failed to received knowledge chunk from embeddings service, with error: {e}",
+            e
+        );
+        Error::InternalError
+    })?;
+
     Ok(Json(RelatedKnowledgeResponse {
         knowledge_graph_data: json!({}),
         is_sucess: true,
