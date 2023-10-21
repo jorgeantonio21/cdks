@@ -8,7 +8,9 @@ async fn main() {
     let (chunk_sender, chunk_receiver) = std::sync::mpsc::channel::<String>();
     let (embeddings_sender, embeddings_receiver) =
         std::sync::mpsc::channel::<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>();
-    let _join_handle = EmbeddingsService::spawn(chunk_receiver, embeddings_sender);
+    let (embedding_index_sender, embedding_index_receiver) = std::sync::mpsc::channel::<u32>();
+    let _join_handle =
+        EmbeddingsService::spawn(chunk_receiver, embeddings_sender, embedding_index_sender);
     // _join_handle.join().expect("Failed to execute JoinHandle");
 
     info!("Sending text chunks");

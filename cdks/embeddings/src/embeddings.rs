@@ -94,19 +94,19 @@ impl Embeddings {
         &self,
         embedding: [f32; DEFAULT_MODEL_EMBEDDING_SIZE],
         num_queries: u32,
-    ) -> Vec<u32s> {
+    ) -> Vec<u32> {
         // This is a very inneficient implementation. We will want to refactor this to use KDTrees. See
         // https://sachaarbonel.medium.com/how-to-build-a-semantic-search-engine-in-rust-e96e6378cfd9 and https://en.wikipedia.org/wiki/K-d_tree
-        let mut cosine_similarities_arrs: Vec<(f32, &[f32; DEFAULT_MODEL_EMBEDDING_SIZE])> =
+        let mut cosine_similarities_arrs: Vec<(f32, (&u32, &[f32; DEFAULT_MODEL_EMBEDDING_SIZE]))> =
             Vec::with_capacity(self.data.len());
-        for (_, stored_embedding) in self.data.iter() {
+        for (id, stored_embedding) in self.data.iter() {
             let cosine_similarity = cosine_similarity(stored_embedding, &embedding);
-            cosine_similarities_arrs.push((cosine_similarity, stored_embedding));
+            cosine_similarities_arrs.push((cosine_similarity, (id, stored_embedding)));
         }
         cosine_similarities_arrs.sort_by(|entry1, entry2| entry2.0.partial_cmp(&entry1.0).unwrap());
         cosine_similarities_arrs[..(num_queries as usize)]
             .iter()
-            .map(|(_, arr)| **arr)
+            .map(|(_, (id, _))| **id)
             .collect()
     }
 }

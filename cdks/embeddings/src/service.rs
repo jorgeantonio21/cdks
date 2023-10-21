@@ -19,26 +19,32 @@ pub struct EmbeddingsService {
     pub(crate) chunk_receiver: Receiver<String>,
     pub(crate) embeddings: Embeddings,
     pub(crate) embedding_sender: Sender<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>,
+    pub(crate) embedding_index_sender: Sender<u32>,
 }
 
 impl EmbeddingsService {
     pub fn new(
         chunk_receiver: Receiver<String>,
         embedding_sender: Sender<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>,
+        embedding_index_sender: Sender<u32>,
     ) -> Result<Self, Error> {
         Ok(Self {
             chunk_receiver,
             embeddings: Embeddings::new()?,
             embedding_sender,
+            embedding_index_sender,
         })
     }
 
     pub fn spawn(
         chunk_receiver: Receiver<String>,
         embedding_sender: Sender<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>,
+        embedding_index_sender: Sender<u32>,
     ) -> std::thread::JoinHandle<Result<(), Error>> {
         info!("Starting Embeddings service..");
-        std::thread::spawn(move || Self::new(chunk_receiver, embedding_sender)?.run())
+        std::thread::spawn(move || {
+            Self::new(chunk_receiver, embedding_sender, embedding_index_sender)?.run()
+        })
     }
 
     pub fn run(&mut self) -> Result<(), Error> {
@@ -64,11 +70,11 @@ impl EmbeddingsService {
                     }
                     let query_embedding: [f32; DEFAULT_MODEL_EMBEDDING_SIZE] =
                         query_embedding.try_into().unwrap();
-                    let embeddings = self
+                    let indices = self
                         .embeddings
                         .find_closest_embeddings(query_embedding, num_queries);
-                    for embedding in embeddings {
-                        self.embedding_sender.send(embedding)?;
+                    for index in indices {
+                        self.embedding_index_sender.send(index)?;
                     }
                 }
                 Message::ProcessChunk(chunk) => {
