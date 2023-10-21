@@ -63,11 +63,7 @@ pub async fn process_chunk_handler(
                         request_id.load(std::sync::atomic::Ordering::SeqCst),
                     ) {
                         Ok(query) => {
-                            if let Err(e) = state
-                                .tx_neo4j
-                                .send((request_id.load(std::sync::atomic::Ordering::SeqCst), query))
-                                .await
-                            {
+                            if let Err(e) = state.tx_neo4j.send(query).await {
                                 error!("Failed to send query to Neo4J service, with error: {e}");
                                 return Err(Error::InternalError);
                             };
@@ -132,20 +128,10 @@ pub async fn retrieve_knowledge(
         error!("Failed to build JSON from node indices, with error: {e}");
         Error::InternalError
     })?;
-    state
-        .tx_neo4j
-        .send((
-            state
-                .request_id
-                .clone()
-                .load(std::sync::atomic::Ordering::SeqCst),
-            query,
-        ))
-        .await
-        .map_err(|e| {
-            error!("Failed to build JSON from node indices, with error: {e}");
-            Error::InternalError
-        })?;
+    state.tx_neo4j.send(query).await.map_err(|e| {
+        error!("Failed to build JSON from node indices, with error: {e}");
+        Error::InternalError
+    })?;
 
     let knowledge_graph_data =
         if let Some(data) = state.rx_neo4j_relations.lock().await.recv().await {

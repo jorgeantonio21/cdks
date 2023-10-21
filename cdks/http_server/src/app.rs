@@ -21,7 +21,7 @@ use crate::{
 #[derive(Clone, FromRef)]
 pub struct AppState {
     pub(crate) request_id: Arc<AtomicU32>,
-    pub(crate) tx_neo4j: Sender<(u32, Value)>,
+    pub(crate) tx_neo4j: Sender<Value>,
     pub(crate) rx_neo4j_relations: Arc<Mutex<Receiver<Value>>>,
     pub(crate) client: Arc<OpenAiClient>,
     pub(crate) embeddings_receiver: Arc<Mutex<mpsc::Receiver<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>>>,
@@ -29,7 +29,7 @@ pub struct AppState {
 }
 
 pub fn routes(
-    tx_neo4j: Sender<(u32, Value)>,
+    tx_neo4j: Sender<Value>,
     rx_neo4j_relations: Receiver<Value>,
     client: OpenAiClient,
     embeddings_receiver: mpsc::Receiver<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>,

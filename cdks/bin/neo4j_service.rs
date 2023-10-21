@@ -6,7 +6,7 @@ use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() {
-    let (tx, rx) = tokio::sync::mpsc::channel::<(u32, Value)>(100);
+    let (tx, rx) = tokio::sync::mpsc::channel::<Value>(100);
     let (tx_relations, _) = tokio::sync::mpsc::channel::<Value>(100);
     let config = neo4rs::ConfigBuilder::new()
         .uri("neo4j")
@@ -18,7 +18,7 @@ async fn main() {
     let _join_handle =
         Neo4jService::spawn(rx, tx_relations, Arc::new(RwLock::new(connection))).await;
 
-    for i in 0..10 {
+    for _ in 0..10 {
         let tx_clone = tx.clone();
         tokio::spawn(async move {
             let query_value = serde_json::to_value(
@@ -26,7 +26,7 @@ async fn main() {
             )
             .unwrap();
             tx_clone
-                .send((i, query_value))
+                .send(query_value)
                 .await
                 .expect("Failed to send value");
         });
