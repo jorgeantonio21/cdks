@@ -25,7 +25,7 @@ pub async fn process_chunk_handler(
     // send text chunk to the embeddings service to be processed.
     let request_id = state.request_id.clone();
     let embeddings_join_handle = tokio::spawn(async move {
-        let send_string = format!(r#"{{"id": {:?}, "chunk_text":"{}"}}"#, request_id, chunk);
+        let send_string = format!(r#"{{"chunk_text":[{:?},"{}"]}}"#, request_id, chunk);
         state
             .embeddings_text_sender
             .lock()

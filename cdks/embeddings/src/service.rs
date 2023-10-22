@@ -57,6 +57,7 @@ impl EmbeddingsService {
                 Message::ChunkText((id, chunk)) => {
                     info!("Process and storing new received text chunk..");
                     self.embeddings.process_chunk_and_store(id, &chunk)?;
+                    info!("Chunk has being successfully processed and stored");
                 }
                 Message::Reset => {
                     let data = self.embeddings.reset();
