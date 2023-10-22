@@ -13,6 +13,7 @@ pub async fn run_service<'a>(
     client: OpenAiClient,
     embeddings_receiver: mpsc::Receiver<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>,
     embeddings_text_sender: mpsc::Sender<String>,
+    embeddings_index_receiver: mpsc::Receiver<u32>,
     config: Config,
 ) -> Result<(), anyhow::Error> {
     let mut bind = true;
@@ -31,6 +32,7 @@ pub async fn run_service<'a>(
             client,
             embeddings_receiver,
             embeddings_text_sender,
+            embeddings_index_receiver,
         )
         .into_make_service(),
     );

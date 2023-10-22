@@ -15,7 +15,7 @@ use tokio::sync::{
 
 use crate::{
     client::OpenAiClient,
-    handlers::{process_chunk_handler, retrieve_knowledge},
+    handlers::{get_related_knowledge_handler, process_chunk_handler, retrieve_knowledge_handler},
 };
 
 #[derive(Clone, FromRef)]
@@ -26,6 +26,7 @@ pub struct AppState {
     pub(crate) client: Arc<OpenAiClient>,
     pub(crate) embeddings_receiver: Arc<Mutex<mpsc::Receiver<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>>>,
     pub(crate) embeddings_text_sender: Arc<Mutex<std::sync::mpsc::Sender<String>>>,
+    pub(crate) embeddings_indices_receiver: Arc<Mutex<std::sync::mpsc::Receiver<u32>>>,
 }
 
 pub fn routes(
@@ -34,6 +35,7 @@ pub fn routes(
     client: OpenAiClient,
     embeddings_receiver: mpsc::Receiver<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>,
     embeddings_text_sender: mpsc::Sender<String>,
+    embeddings_indices_receiver: std::sync::mpsc::Receiver<u32>,
 ) -> Router {
     let app_state = AppState {
         request_id: Arc::new(AtomicU32::new(0)),
@@ -42,12 +44,14 @@ pub fn routes(
         client: Arc::new(client),
         embeddings_receiver: Arc::new(Mutex::new(embeddings_receiver)),
         embeddings_text_sender: Arc::new(Mutex::new(embeddings_text_sender)),
+        embeddings_indices_receiver: Arc::new(Mutex::new(embeddings_indices_receiver)),
     };
 
     info!("Routing..");
 
     Router::new()
         .route("/", post(process_chunk_handler))
-        .route("/retrieve_knowledge", get(retrieve_knowledge))
+        .route("/retrieve_knowledge", get(retrieve_knowledge_handler))
+        .route("/related_knowledge", get(get_related_knowledge_handler))
         .with_state(app_state)
 }

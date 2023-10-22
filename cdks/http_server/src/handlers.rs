@@ -116,7 +116,7 @@ pub async fn process_chunk_handler(
     }
 }
 
-pub async fn retrieve_knowledge(
+pub async fn retrieve_knowledge_handler(
     State(state): State<AppState>,
     Json(request): Json<RetrieveKnowledgeRequest>,
 ) -> Result<Json<RetrieveKnowledgeResponse>> {
@@ -151,32 +151,48 @@ pub async fn retrieve_knowledge(
     }))
 }
 
-pub async fn get_related_knowledge(
+pub async fn get_related_knowledge_handler(
     State(state): State<AppState>,
     Json(request): Json<RelatedKnowledgeRequest>,
 ) -> Result<Json<RelatedKnowledgeResponse>> {
-    let RelatedKnowledgeRequest { chunk, params } = request;
+    let RelatedKnowledgeRequest { chunk, num_queries } = request;
+
+    let num_queries = num_queries.unwrap_or(1);
+
+    let send_string = format!(r#"{{"get_chunk_id":["{}",{}]}}"#, chunk, num_queries);
 
     state
         .embeddings_text_sender
         .lock()
         .await
-        .send(chunk)
+        .send(send_string)
         .map_err(|e| {
             error!("Failed to send chunk to embeddings service, with error: {e}");
             Error::InternalError
         })?;
 
-    let knowledge_chunk = state.embeddings_receiver.lock().await.recv().map_err(|e| {
-        error!(
-            "Failed to received knowledge chunk from embeddings service, with error: {e}",
-            e
-        );
-        Error::InternalError
-    })?;
+    // TODO: for now we follow a simple approach of waiting for `num_queries` tokens, notice that the database might have less than `num_queries chunks`
+    let mut received_tokens = 0;
+    let mut knowledge_graph_chunks = vec![];
+    while let Ok(knowledge_chunk) = state
+        .embeddings_indices_receiver
+        .lock()
+        .await
+        .recv()
+        .map_err(|e| {
+            error!("Failed to received knowledge chunk from embeddings service, with error: {e}");
+            Error::InternalError
+        })
+    {
+        received_tokens += 1;
+        knowledge_graph_chunks.push(knowledge_chunk);
+        if received_tokens >= num_queries {
+            break;
+        }
+    }
 
     Ok(Json(RelatedKnowledgeResponse {
-        knowledge_graph_data: json!({}),
+        knowledge_graph_data: json!({ "knowledge_graph_chunks": knowledge_graph_chunks }),
         is_sucess: true,
     }))
 }

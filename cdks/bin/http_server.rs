@@ -20,6 +20,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let (embeddings_sender, embeddings_receiver) =
         mpsc::channel::<[f32; DEFAULT_MODEL_EMBEDDING_SIZE]>();
     let (embeddings_text_sender, embeddings_text_receiver) = mpsc::channel::<String>();
+    let (embeddings_index_sender, embeddings_index_receiver) = mpsc::channel::<u32>();
 
     // Start Neo4j service
     let config = ConfigBuilder::new()
@@ -37,8 +38,11 @@ async fn main() -> Result<(), anyhow::Error> {
     .await;
 
     // Start Embeddings service
-    let _embeddings_join_handle =
-        EmbeddingsService::spawn(embeddings_text_receiver, embeddings_sender);
+    let _embeddings_join_handle = EmbeddingsService::spawn(
+        embeddings_text_receiver,
+        embeddings_sender,
+        embeddings_index_sender,
+    );
 
     let endpoint = env::var("OPENAI_API_ENDPOINT").expect("Failed to load OPENAI_API_ENDPOINT");
 
@@ -51,6 +55,7 @@ async fn main() -> Result<(), anyhow::Error> {
         client,
         embeddings_receiver,
         embeddings_text_sender,
+        embeddings_index_receiver,
         config,
     )
     .await?;

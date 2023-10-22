@@ -29,8 +29,7 @@ pub struct RetrieveKnowledgeResponse {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RelatedKnowledgeRequest {
     pub(crate) chunk: String,
-    #[serde(flatten)]
-    pub(crate) params: OpenAiModelParams,
+    pub(crate) num_queries: Option<u32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
