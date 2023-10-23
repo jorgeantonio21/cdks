@@ -11,6 +11,7 @@ pub struct ProcessChunkRequest {
 pub struct ProcessChunkResponse {
     pub(crate) is_success: bool,
     pub(crate) hash: [u8; 32],
+    pub(crate) error_message: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -22,8 +23,9 @@ pub struct RetrieveKnowledgeRequest {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RetrieveKnowledgeResponse {
-    pub(crate) knowledge_graph_data: serde_json::Value,
+    pub(crate) knowledge_graph_data: Option<serde_json::Value>,
     pub(crate) is_success: bool,
+    pub(crate) error_message: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -34,8 +36,24 @@ pub struct RelatedKnowledgeRequest {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RelatedKnowledgeResponse {
-    pub(crate) knowledge_graph_data: serde_json::Value,
-    pub(crate) is_sucess: bool,
+    pub(crate) knowledge_graph_data: Option<serde_json::Value>,
+    pub(crate) is_success: bool,
+    pub(crate) error_message: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct EnchancedLlmRequest {
+    pub(crate) prompt: String,
+    pub(crate) num_queries: Option<u32>,
+    #[serde(flatten)]
+    pub(crate) params: OpenAiModelParams,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct EnhancedLlmResponse {
+    pub(crate) response: Option<String>,
+    pub(crate) is_success: bool,
+    pub(crate) error_message: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

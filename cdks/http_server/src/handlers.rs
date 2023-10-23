@@ -8,8 +8,9 @@ use crate::{
     app::AppState,
     error::{Error, Result},
     types::{
-        OpenAiRequest, ProcessChunkRequest, ProcessChunkResponse, RelatedKnowledgeRequest,
-        RelatedKnowledgeResponse, RetrieveKnowledgeRequest, RetrieveKnowledgeResponse,
+        EnchancedLlmRequest, EnhancedLlmResponse, OpenAiRequest, ProcessChunkRequest,
+        ProcessChunkResponse, RelatedKnowledgeRequest, RelatedKnowledgeResponse,
+        RetrieveKnowledgeRequest, RetrieveKnowledgeResponse,
     },
     utils::{kg_to_query_json, retrieve_prompt},
 };
@@ -95,6 +96,7 @@ pub async fn process_chunk_handler(
             return Ok(Json(ProcessChunkResponse {
                 is_success: true,
                 hash: [0u8; 32],
+                error_message: None,
             }));
         }
         (Err(e), Ok(_)) => {
@@ -146,8 +148,9 @@ pub async fn retrieve_knowledge_handler(
         .request_id
         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     Ok(Json(RetrieveKnowledgeResponse {
-        knowledge_graph_data,
+        knowledge_graph_data: Some(knowledge_graph_data),
         is_success: true,
+        error_message: None,
     }))
 }
 
@@ -160,7 +163,6 @@ pub async fn get_related_knowledge_handler(
     let num_queries = num_queries.unwrap_or(1);
 
     let send_string = format!(r#"{{"get_chunk_id":["{}",{}]}}"#, chunk, num_queries);
-
     state
         .embeddings_text_sender
         .lock()
@@ -192,7 +194,19 @@ pub async fn get_related_knowledge_handler(
     }
 
     Ok(Json(RelatedKnowledgeResponse {
-        knowledge_graph_data: json!({ "knowledge_graph_chunks": knowledge_graph_chunks }),
-        is_sucess: true,
+        knowledge_graph_data: Some(json!({ "knowledge_graph_chunks": knowledge_graph_chunks })),
+        is_success: true,
+        error_message: None,
+    }))
+}
+
+pub async fn get_enhanced_llm_response_handler(
+    State(state): State<AppState>,
+    Json(request): Json<EnchancedLlmRequest>,
+) -> Result<Json<EnhancedLlmResponse>> {
+    Ok(Json(EnhancedLlmResponse {
+        response: Some(String::from("TODO")),
+        is_success: true,
+        error_message: None,
     }))
 }
