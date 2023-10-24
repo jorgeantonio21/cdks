@@ -8,7 +8,7 @@ use crate::{
     app::AppState,
     error::{Error, Result},
     types::{
-        EnchancedLlmRequest, EnhancedLlmResponse, OpenAiRequest, ProcessChunkRequest,
+        EnhancedLlmRequest, EnhancedLlmResponse, OpenAiRequest, ProcessChunkRequest,
         ProcessChunkResponse, RelatedKnowledgeRequest, RelatedKnowledgeResponse,
         RetrieveKnowledgeRequest, RetrieveKnowledgeResponse,
     },
@@ -154,7 +154,7 @@ pub async fn retrieve_knowledge_handler(
     }))
 }
 
-pub async fn get_related_knowledge_handler(
+pub async fn related_knowledge_handler(
     State(state): State<AppState>,
     Json(request): Json<RelatedKnowledgeRequest>,
 ) -> Result<Json<RelatedKnowledgeResponse>> {
@@ -200,10 +200,77 @@ pub async fn get_related_knowledge_handler(
     }))
 }
 
-pub async fn get_enhanced_llm_response_handler(
+pub async fn enhanced_llm_response_handler(
     State(state): State<AppState>,
-    Json(request): Json<EnchancedLlmRequest>,
+    Json(request): Json<EnhancedLlmRequest>,
 ) -> Result<Json<EnhancedLlmResponse>> {
+    let EnhancedLlmRequest {
+        prompt,
+        num_queries,
+        params,
+    } = request;
+    let num_queries = num_queries.unwrap_or(1);
+
+    let send_string = format!(r#"{{"get_chunk_id":["{}",{}]}}"#, prompt, num_queries);
+    state
+        .embeddings_text_sender
+        .lock()
+        .await
+        .send(send_string)
+        .map_err(|e| {
+            error!("Failed to send chunk to embeddings service, with error: {e}");
+            Error::InternalError
+        })?;
+
+    let mut retrievals = 0;
+    let mut knowledge_chunks = vec![];
+
+    let lock = state.embeddings_indices_receiver.lock().await;
+
+    while let Ok(knowledge_chunk) = lock.recv().map_err(|e| {
+        error!("Failed to received knowledge chunk from embeddings service, with error: {e}");
+        Error::InternalError
+    }) {
+        knowledge_chunks.push(knowledge_chunk);
+        retrievals += 1;
+        if retrievals >= num_queries + 1 {
+            break;
+        }
+    }
+
+    state
+        .tx_neo4j
+        .send(
+            serde_json::from_str::<serde_json::Value>(&format!(
+                r#"{{"retrieve":{:?}}}"#,
+                knowledge_chunks
+            ))
+            .map_err(|e| {
+                error!("Failed to deserialize value, with error: {e}");
+                Error::InternalError
+            })?,
+        )
+        .await
+        .map_err(|e| {
+            error!("Failed to send query to Neo4J database");
+            Error::InternalError
+        })?;
+
+    let mut knowledge_graph_triplets = vec![];
+    while let Some(value) = state.rx_neo4j_relations.lock().await.recv().await {
+        let head = value["head"].to_string();
+        let tail = value["tail"].to_string();
+        let relation = value["relation"].to_string();
+        info!(
+            "Got new head = {}, tail = {}, relation = {}",
+            head, tail, relation
+        );
+        let triplet = format!("{} | {} | {}", head, relation, tail);
+        knowledge_graph_triplets.push(triplet);
+    }
+
+    // let output_prompt = prompt(knowledge_graph_triplets);
+
     Ok(Json(EnhancedLlmResponse {
         response: Some(String::from("TODO")),
         is_success: true,

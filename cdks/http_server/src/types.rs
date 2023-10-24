@@ -42,7 +42,7 @@ pub struct RelatedKnowledgeResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EnchancedLlmRequest {
+pub struct EnhancedLlmRequest {
     pub(crate) prompt: String,
     pub(crate) num_queries: Option<u32>,
     #[serde(flatten)]

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub type Labels = Vec<usize>;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Neo4jQuery {
     Builder(Neo4jQueryBuilder),
     Retrieve(Labels),
@@ -223,5 +224,14 @@ mod tests {
         let serialized =
             serde_json::to_string(&query_builder).expect("Failed to deserialize object");
         println!("{}", serialized);
+    }
+
+    #[test]
+    fn test_deserialize_retrieve_nodes() {
+        let neo4j_query = Neo4jQuery::Retrieve(vec![0, 1, 2]);
+        assert_eq!(
+            serde_json::to_string(&neo4j_query).expect("Failed to deserialize"),
+            r#"{"retrieve":[0,1,2]}"#
+        );
     }
 }

@@ -15,7 +15,10 @@ use tokio::sync::{
 
 use crate::{
     client::OpenAiClient,
-    handlers::{get_related_knowledge_handler, process_chunk_handler, retrieve_knowledge_handler},
+    handlers::{
+        enhanced_llm_response_handler, process_chunk_handler, related_knowledge_handler,
+        retrieve_knowledge_handler,
+    },
 };
 
 #[derive(Clone, FromRef)]
@@ -52,6 +55,7 @@ pub fn routes(
     Router::new()
         .route("/", post(process_chunk_handler))
         .route("/retrieve_knowledge", get(retrieve_knowledge_handler))
-        .route("/related_knowledge", get(get_related_knowledge_handler))
+        .route("/related_knowledge", get(related_knowledge_handler))
+        .route("/enhanced_knowledge", get(enhanced_llm_response_handler))
         .with_state(app_state)
 }
