@@ -8,11 +8,24 @@ pub(crate) fn retrieve_prompt(chunk: &str) -> String {
     let mut prompt = format!("Text: {} \n", chunk);
     prompt.push_str(r#"Task: Generate a knowledge graph from the above Text.\n
     Your answer should consist of the knowledge graph, enclosed in <kg></kg> tags.\n
-    The generated knowledge graph by you, should contain entities and relations, in JSON format.\n
+    The generated knowledge graph should contain entities and relations, in JSON format.\n
     To guide in your answer generation, I provide an example of such a knowledge graph.
     <kg>{{"entities":["entity_1","entity_2","entity_3"],"relations":[{{"head":"entity_1","tail":"entity_2","relation":"relation_12"}},{{"head":"entity_2","tail":"entity_3","relation":"relation_23"}}]}}</kg>\n
     The entities and relations should always be generated in camel case, and they should always start with a letter (not a number or other special characters).
     Your answer: "#);
+    prompt
+}
+
+pub(crate) fn generate_answer(question: &str, knowledge_graph: Vec<&str>) -> String {
+    let knowledge_graph_string = knowledge_graph.join(", ");
+    let mut prompt = format!("Knowledge Graph: {}\n\n");
+    prompt.push_str(format!("Question: {}\n\n", question).as_str());
+    prompt.push_str(
+        r#"Task: From the content of Knowledge Graph above, provided in |-formatted triplets, provide the best possible answer to the question, provided above. \n
+        In order to help you formulate your answer, follow the steps provided below: \n 
+        Step 1: Iterate from the Knowledge Graph above and extract the triplets that better provide content related to the Question above. \n
+        Step 2: Using the extracted triplets in Step 1, formulate a human readable answer to the Question above, that is direct and uses all the relevant information. "#,
+    );
     prompt
 }
 

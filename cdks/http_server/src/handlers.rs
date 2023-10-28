@@ -1,5 +1,5 @@
 use axum::{extract::State, Json};
-use neo4j::neo4j_builder::Neo4jQuery;
+use neo4j::{graph::KnowledgeGraph, neo4j_builder::Neo4jQuery};
 use regex::Regex;
 use serde_json::json;
 use tokio::join;
@@ -12,7 +12,7 @@ use crate::{
         ProcessChunkResponse, RelatedKnowledgeRequest, RelatedKnowledgeResponse,
         RetrieveKnowledgeRequest, RetrieveKnowledgeResponse,
     },
-    utils::{kg_to_query_json, retrieve_prompt},
+    utils::{generate_answer, kg_to_query_json, retrieve_prompt},
 };
 use log::{error, info};
 
@@ -231,9 +231,10 @@ pub async fn enhanced_llm_response_handler(
         error!("Failed to received knowledge chunk from embeddings service, with error: {e}");
         Error::InternalError
     }) {
+        info!("Received new knowledge_chunk: {}", knowledge_chunk);
         knowledge_chunks.push(knowledge_chunk);
         retrievals += 1;
-        if retrievals >= num_queries + 1 {
+        if retrievals >= num_queries {
             break;
         }
     }
@@ -269,6 +270,12 @@ pub async fn enhanced_llm_response_handler(
         knowledge_graph_triplets.push(triplet);
     }
 
+    let output_prompt = generate_answer(&prompt, knowledge_graph_triplets);
+    let open_ai_request = OpenAiRequest {
+        prompt: output_prompt,
+        params: params,
+    };
+    let response = state.client.call(open_ai_request).await?;
     // let output_prompt = prompt(knowledge_graph_triplets);
 
     Ok(Json(EnhancedLlmResponse {
