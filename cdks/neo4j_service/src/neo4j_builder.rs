@@ -80,7 +80,7 @@ impl Neo4jQueryBuilder {
     }
 
     pub fn return_fields(mut self, fields: &[&str]) -> Self {
-        self.return_fields = fields.into_iter().map(|s| s.to_string()).collect();
+        self.return_fields = fields.iter().map(|s| s.to_string()).collect();
         self
     }
 

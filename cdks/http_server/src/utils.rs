@@ -16,15 +16,15 @@ pub(crate) fn retrieve_prompt(chunk: &str) -> String {
     prompt
 }
 
-pub(crate) fn generate_answer(question: &str, knowledge_graph: Vec<&str>) -> String {
+pub(crate) fn generate_answer(question: &str, knowledge_graph: Vec<String>) -> String {
     let knowledge_graph_string = knowledge_graph.join(", ");
-    let mut prompt = format!("Knowledge Graph: {}\n\n");
+    let mut prompt = format!("Knowledge Graph: {}\n\n", knowledge_graph_string);
     prompt.push_str(format!("Question: {}\n\n", question).as_str());
     prompt.push_str(
         r#"Task: From the content of Knowledge Graph above, provided in |-formatted triplets, provide the best possible answer to the question, provided above. \n
         In order to help you formulate your answer, follow the steps provided below: \n 
         Step 1: Iterate from the Knowledge Graph above and extract the triplets that better provide content related to the Question above. \n
-        Step 2: Using the extracted triplets in Step 1, formulate a human readable answer to the Question above, that is direct and uses all the relevant information. "#,
+        Step 2: Using the extracted triplets in Step 1, formulate a human readable answer to the Question above, that is coherent, direct and relies completely on the triplets from Step 1. "#,
     );
     prompt
 }
@@ -46,7 +46,7 @@ pub(crate) fn kg_to_query_json(kg: &str, id: u32) -> anyhow::Result<Value> {
     info!("Retrieved Knowledge Graph: {:?}", graph);
 
     let query_builder = graph.to_cypher_query_builder(&[("query_id", format!("{}", id).as_str())]);
-    serde_json::to_value(&Neo4jQuery::Builder(query_builder))
+    serde_json::to_value(Neo4jQuery::Builder(query_builder))
         .map_err(|e| anyhow!("Failed to convert to query builder, with error: {e}"))
 }
 

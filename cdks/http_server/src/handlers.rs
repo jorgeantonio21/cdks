@@ -1,5 +1,5 @@
 use axum::{extract::State, Json};
-use neo4j::{graph::KnowledgeGraph, neo4j_builder::Neo4jQuery};
+use neo4j::neo4j_builder::Neo4jQuery;
 use regex::Regex;
 use serde_json::json;
 use tokio::join;
@@ -93,27 +93,27 @@ pub async fn process_chunk_handler(
             state
                 .request_id
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            return Ok(Json(ProcessChunkResponse {
+            Ok(Json(ProcessChunkResponse {
                 is_success: true,
                 hash: [0u8; 32],
                 error_message: None,
-            }));
+            }))
         }
         (Err(e), Ok(_)) => {
             // Task 1 failed
             error!("Task 1 failed, with error: {}", e);
-            return Err(Error::InternalError);
+            Err(Error::InternalError)
         }
         (Ok(_), Err(e)) => {
             // Task 2 failed
             error!("Task 2 failed, with error: {}", e);
-            return Err(Error::InternalError);
+            Err(Error::InternalError)
         }
         (Err(e1), Err(e2)) => {
             // Both tasks failed
             error!("Task 1 failed: with error {}", e1);
             error!("Task 2 failed: with error {}", e2);
-            return Err(Error::InternalError);
+            Err(Error::InternalError)
         }
     }
 }
@@ -126,7 +126,7 @@ pub async fn retrieve_knowledge_handler(
         node_indices,
         params: _params,
     } = request;
-    let query = serde_json::to_value(&Neo4jQuery::Retrieve(node_indices)).map_err(|e| {
+    let query = serde_json::to_value(Neo4jQuery::Retrieve(node_indices)).map_err(|e| {
         error!("Failed to build JSON from node indices, with error: {e}");
         Error::InternalError
     })?;
@@ -253,7 +253,7 @@ pub async fn enhanced_llm_response_handler(
         )
         .await
         .map_err(|e| {
-            error!("Failed to send query to Neo4J database");
+            error!("Failed to send query to Neo4J database, with error: {}", e);
             Error::InternalError
         })?;
 
@@ -273,13 +273,18 @@ pub async fn enhanced_llm_response_handler(
     let output_prompt = generate_answer(&prompt, knowledge_graph_triplets);
     let open_ai_request = OpenAiRequest {
         prompt: output_prompt,
-        params: params,
+        params,
     };
-    let response = state.client.call(open_ai_request).await?;
+    let open_ai_response = state.client.call(open_ai_request).await.map_err(|e| {
+        error!("Invalid OpenAI call, with error: {}", e);
+        Error::InternalError
+    })?;
+    let response = open_ai_response["choices"][0]["message"]["content"].to_string();
+
     // let output_prompt = prompt(knowledge_graph_triplets);
 
     Ok(Json(EnhancedLlmResponse {
-        response: Some(String::from("TODO")),
+        response: Some(response),
         is_success: true,
         error_message: None,
     }))
