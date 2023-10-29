@@ -257,7 +257,9 @@ pub async fn enhanced_llm_response_handler(
             Error::InternalError
         })?;
 
+    let mut retrievals = 0;
     let mut knowledge_graph_triplets = vec![];
+
     while let Some(value) = state.rx_neo4j_relations.lock().await.recv().await {
         let head = value["head"].to_string();
         let tail = value["tail"].to_string();
@@ -268,6 +270,10 @@ pub async fn enhanced_llm_response_handler(
         );
         let triplet = format!("{} | {} | {}", head, relation, tail);
         knowledge_graph_triplets.push(triplet);
+        retrievals += 1;
+        if retrievals >= num_queries {
+            break;
+        }
     }
 
     let output_prompt = generate_answer(&prompt, knowledge_graph_triplets);
